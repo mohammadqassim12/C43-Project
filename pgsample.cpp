@@ -39,7 +39,7 @@ int main() {
         }
 
         // Close the database connection
-        C.disconnect();
+        C.close();
         std::cout << "Disconnected from the database" << std::endl;
     } catch (const std::exception &e) {
         std::cerr << e.what() << std::endl;
