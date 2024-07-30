@@ -9,6 +9,10 @@
 
 int currentUserID = -1; // Global variable to track the logged-in user
 
+void clearScreen() {
+    std::cout << "\033[2J\033[1;1H"; // ANSI escape codes to clear the screen and move the cursor to the top left corner
+}
+
 void displayMenu() {
     std::cout << "Menu:\n";
     std::cout << "1. Register User\n";
@@ -25,6 +29,7 @@ void displayMenu() {
     std::cout << "12. Accept Friend Request\n";
     std::cout << "13. Add Review\n";
     std::cout << "14. View Reviews\n";
+    std::cout << "15. View Friends\n";
     std::cout << "0. Exit\n";
     std::cout << "Enter your choice: ";
 }
@@ -45,8 +50,10 @@ int main() {
         int value, fromUserID, toUserID, volume;
 
         while (true) {
+            clearScreen(); // Clear the screen before displaying the menu
             displayMenu();
             std::cin >> choice;
+            clearScreen(); // Clear the screen after the user makes a choice
             switch (choice) {
                 case 1: {
                     std::cout << "Enter name: ";
@@ -192,6 +199,15 @@ int main() {
                     viewReviews(N, listName);
                     break;
                 }
+                case 15: {
+                    if (currentUserID == -1) {
+                        std::cout << "Please log in first.\n";
+                        break;
+                    }
+                    pqxx::nontransaction N(C);
+                    viewFriends(N, currentUserID);
+                    break;
+                }
                 case 0: {
                     C.close();
                     std::cout << "Disconnected from the database" << std::endl;
@@ -201,6 +217,9 @@ int main() {
                     std::cout << "Invalid choice\n";
                     break;
             }
+            std::cout << "Press Enter to continue...";
+            std::cin.ignore();
+            std::cin.get();
         }
     } catch (const std::exception &e) {
         std::cerr << e.what() << std::endl;
