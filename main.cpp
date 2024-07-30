@@ -30,6 +30,7 @@ void displayMenu() {
     std::cout << "13. Add Review\n";
     std::cout << "14. View Reviews\n";
     std::cout << "15. View Friends\n";
+    std::cout << "16. Import CSV Data\n"; // New option for importing CSV data
     std::cout << "0. Exit\n";
     std::cout << "Enter your choice: ";
 }
@@ -45,7 +46,7 @@ int main() {
         }
 
         int choice;
-        std::string name, email, password, listName, symbol, timestamp, text;
+        std::string name, email, password, listName, code, timestamp, text, filePath;
         double cashAmount, open, high, low, close;
         int value, fromUserID, toUserID, volume;
 
@@ -122,8 +123,8 @@ int main() {
                     break;
                 }
                 case 8: {
-                    std::cout << "Enter symbol: ";
-                    std::cin >> symbol;
+                    std::cout << "Enter code: ";
+                    std::cin >> code;
                     std::cout << "Enter timestamp: ";
                     std::cin >> timestamp;
                     std::cout << "Enter open: ";
@@ -137,14 +138,14 @@ int main() {
                     std::cout << "Enter volume: ";
                     std::cin >> volume;
                     pqxx::work W(C);
-                    addStockData(W, symbol, timestamp, open, high, low, close, volume);
+                    addStockData(W, code, timestamp, open, high, low, close, volume);
                     break;
                 }
                 case 9: {
-                    std::cout << "Enter symbol: ";
-                    std::cin >> symbol;
+                    std::cout << "Enter code: ";
+                    std::cin >> code;
                     pqxx::nontransaction N(C);
-                    viewStockData(N, symbol);
+                    viewStockData(N, code);
                     break;
                 }
                 case 10: {
@@ -206,6 +207,12 @@ int main() {
                     }
                     pqxx::nontransaction N(C);
                     viewFriends(N, currentUserID);
+                    break;
+                }
+                case 16: {
+                    std::cout << "Enter the CSV file path: ";
+                    std::cin >> filePath;
+                    importCSVData(C, filePath);
                     break;
                 }
                 case 0: {

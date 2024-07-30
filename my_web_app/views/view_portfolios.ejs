@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Portfolios</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <h1>View Portfolios</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Portfolio ID</th>
+                <th>Cash Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% portfolios.forEach(portfolio => { %>
+                <tr>
+                    <td><%= portfolio.portfolioid %></td>
+                    <td><%= portfolio.cashamount %></td>
+                </tr>
+            <% }); %>
+        </tbody>
+    </table>
+    <nav>
+        <a href="/dashboard">Dashboard</a>
+    </nav>
+</body>
+</html>

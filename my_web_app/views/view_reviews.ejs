@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Reviews</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <h1>View Reviews</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>List Name</th>
+                <th>Review</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% reviews.forEach(review => { %>
+                <tr>
+                    <td><%= review.listname %></td>
+                    <td><%= review.text %></td>
+                </tr>
+            <% }); %>
+        </tbody>
+    </table>
+    <nav>
+        <a href="/dashboard">Dashboard</a>
+    </nav>
+</body>
+</html>

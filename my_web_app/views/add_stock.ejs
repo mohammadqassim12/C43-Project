@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Stock</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <h1>Add Stock</h1>
+    <form method="post" action="/add_stock">
+        <label for="code">Code:</label>
+        <input type="text" id="code" name="code" required>
+        <label for="timestamp">Timestamp:</label>
+        <input type="datetime-local" id="timestamp" name="timestamp" required>
+        <label for="open">Open:</label>
+        <input type="number" id="open" name="open" step="0.01" required>
+        <label for="high">High:</label>
+        <input type="number" id="high" name="high" step="0.01" required>
+        <label for="low">Low:</label>
+        <input type="number" id="low" name="low" step="0.01" required>
+        <label for="close">Close:</label>
+        <input type="number" id="close" name="close" step="0.01" required>
+        <label for="volume">Volume:</label>
+        <input type="number" id="volume" name="volume" required>
+        <button type="submit">Add Stock</button>
+    </form>
+    <nav>
+        <a href="/dashboard">Dashboard</a>
+    </nav>
+</body>
+</html>
