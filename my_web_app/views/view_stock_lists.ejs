@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Stock Lists</title>
+</head>
+<body>
+    <h1>Your Stock Lists</h1>
+    <ul>
+        <% stockLists.forEach(stockList => { %>
+            <li>
+                <a href="/view_stock_list/<%= stockList.listname %>"><%= stockList.listname %> (<%= stockList.visibility %>)</a>
+            </li>
+        <% }) %>
+    </ul>
+    <a href="/dashboard">Back to Dashboard</a>
+</body>
+</html>

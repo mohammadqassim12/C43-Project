@@ -350,6 +350,116 @@ app.post('/cancel_friend_request', async (req, res) => {
     res.redirect('/view_friend_requests');
 });
 
+app.get('/create_stock_list', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const error = req.session.error || null;
+        delete req.session.error;
+        res.render('create_stock_list', { error });
+    }
+});
+
+app.post('/create_stock_list', async (req, res) => {
+    const { listName, visibility } = req.body;
+    try {
+        await pool.query('INSERT INTO StockLists (listName, userID, visibility) VALUES ($1, $2, $3)', [listName, req.session.userId, visibility]);
+        res.redirect('/dashboard');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+app.get('/add_stock_to_list', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const error = req.session.error || null;
+        delete req.session.error;
+        res.render('add_stock_to_list', { error });
+    }
+});
+
+app.post('/add_stock_to_list', async (req, res) => {
+    const { code, listName, shares } = req.body;
+    try {
+        const latestStock = await pool.query(
+            'SELECT timestamp FROM Stocks WHERE code = $1 ORDER BY timestamp DESC LIMIT 1',
+            [code]
+        );
+
+        if (latestStock.rows.length === 0) {
+            req.session.error = 'Stock code not found.';
+            return res.redirect('/add_stock_to_list');
+        }
+
+        const timestamp = latestStock.rows[0].timestamp;
+
+        await pool.query(
+            'INSERT INTO Contains (code, timestamp, listName, shares) VALUES ($1, $2, $3, $4)',
+            [code, timestamp, listName, shares]
+        );
+        res.redirect('/dashboard');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+app.get('/change_visibility', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const error = req.session.error || null;
+        delete req.session.error;
+        res.render('change_visibility', { error });
+    }
+});
+
+app.post('/change_visibility', async (req, res) => {
+    const { listName, visibility } = req.body;
+    try {
+        await pool.query('UPDATE StockLists SET visibility = $1 WHERE listName = $2 AND userID = $3', [visibility, listName, req.session.userId]);
+        res.redirect('/dashboard');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+app.get('/view_stock_lists', async (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        try {
+            const result = await pool.query('SELECT * FROM StockLists WHERE userID = $1', [req.session.userId]);
+            res.render('view_stock_lists', { stockLists: result.rows });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
+    }
+});
+
+app.get('/view_stock_list/:listName', async (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const listName = req.params.listName;
+        try {
+            const result = await pool.query(
+                'SELECT c.code, c.timestamp, c.shares, s.open, s.high, s.low, s.close, s.volume FROM Contains c JOIN Stocks s ON c.code = s.code AND c.timestamp = s.timestamp WHERE c.listName = $1',
+                [listName]
+            );
+            res.render('view_stock_list', { stocks: result.rows, listName });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

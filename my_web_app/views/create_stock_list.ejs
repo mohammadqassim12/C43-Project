@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Stock List</title>
+</head>
+<body>
+    <h1>Create Stock List</h1>
+    <% if (error) { %>
+        <p style="color: red;"><%= error %></p>
+    <% } %>
+    <form method="post" action="/create_stock_list">
+        <label for="listName">List Name:</label>
+        <input type="text" id="listName" name="listName" required>
+        <label for="visibility">Visibility:</label>
+        <select id="visibility" name="visibility" required>
+            <option value="private">Private</option>
+            <option value="public">Public</option>
+        </select>
+        <button type="submit">Create</button>
+    </form>
+    <a href="/dashboard">Back to Dashboard</a>
+</body>
+</html>
