@@ -21,14 +21,10 @@
                     <td><%= review.name %></td>
                     <td><%= review.text %></td>
                     <td>
-                        <% if (review.userid === locals.userId) { %>
+                        <% if (review.userid === userId) { %>
                             <a href="/edit_review/<%= review.reviewid %>?listName=<%= listName %>">Edit</a>
-                            <form method="post" action="/delete_review" style="display:inline;">
-                                <input type="hidden" name="reviewID" value="<%= review.reviewid %>">
-                                <input type="hidden" name="listName" value="<%= listName %>">
-                                <button type="submit">Delete</button>
-                            </form>
-                        <% } else if (stockListUserId === locals.userId) { %>
+                        <% } %>
+                        <% if (review.userid === userId || stockListUserId === userId) { %>
                             <form method="post" action="/delete_review" style="display:inline;">
                                 <input type="hidden" name="reviewID" value="<%= review.reviewid %>">
                                 <input type="hidden" name="listName" value="<%= listName %>">

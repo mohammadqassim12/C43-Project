@@ -588,7 +588,7 @@ app.get('/view_reviews/:listName', async (req, res) => {
                     );
                 }
 
-                res.render('view_reviews', { reviews: reviewsResult.rows, listName, stockListUserId: stockList.userid });
+                res.render('view_reviews', { reviews: reviewsResult.rows, listName, userId: req.session.userId, stockListUserId: stockList.userid });
             } else {
                 res.status(404).send('Stock list not found');
             }
@@ -605,10 +605,11 @@ app.get('/edit_review/:reviewID', async (req, res) => {
         res.redirect('/login');
     } else {
         const reviewID = req.params.reviewID;
+        const listName = req.query.listName;  // Get listName from query parameters
         const reviewResult = await pool.query('SELECT * FROM Reviews WHERE reviewID = $1 AND userID = $2', [reviewID, req.session.userId]);
 
         if (reviewResult.rows.length > 0) {
-            res.render('edit_review', { review: reviewResult.rows[0], listName: req.query.listName });
+            res.render('edit_review', { review: reviewResult.rows[0], listName });
         } else {
             res.status(403).send('Forbidden');
         }
@@ -627,6 +628,7 @@ app.post('/edit_review', async (req, res) => {
     }
 });
 
+
 // Handle review deletion
 app.post('/delete_review', async (req, res) => {
     const { reviewID, listName } = req.body;
@@ -636,13 +638,9 @@ app.post('/delete_review', async (req, res) => {
         if (reviewResult.rows.length > 0) {
             const review = reviewResult.rows[0];
 
-            // Ensure only the review author or the stock list creator can delete the review
-            const stockListResult = await pool.query('SELECT * FROM StockLists WHERE listName = $1', [listName]);
-            const stockList = stockListResult.rows[0];
-
-            if (review.userid === req.session.userId || stockList.userid === req.session.userId) {
-                await pool.query('DELETE FROM Reviews WHERE reviewID = $1', [reviewID]);
+            if (review.userid === req.session.userId || req.session.userId === stockListUserId) {
                 await pool.query('DELETE FROM ReviewOn WHERE reviewID = $1', [reviewID]);
+                await pool.query('DELETE FROM Reviews WHERE reviewID = $1', [reviewID]);
                 res.redirect(`/view_reviews/${listName}`);
             } else {
                 res.status(403).send('Forbidden');
