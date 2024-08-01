@@ -551,12 +551,12 @@ app.get('/view_all_stock_lists', async (req, res) => {
         try {
             const result = await pool.query(
                 `SELECT * FROM StockLists 
-                 WHERE visibility = 'public' 
-                 OR userID = $1 
-                 OR listName IN (SELECT listName FROM Share WHERE userID = $1)`,
+                 WHERE userID = $1 
+                    OR visibility = 'public' 
+                    OR listName IN (SELECT listName FROM Share WHERE userID = $1)`,
                 [req.session.userId]
             );
-            res.render('view_all_stock_lists', { stockLists: result.rows });
+            res.render('view_all_stock_lists', { stockLists: result.rows, userId: req.session.userId });
         } catch (err) {
             console.error(err);
             res.status(500).send('Internal Server Error');
