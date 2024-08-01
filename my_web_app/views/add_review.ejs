@@ -6,12 +6,13 @@
     <title>Add Review</title>
 </head>
 <body>
-    <h1>Add Review for <%= listName %></h1>
+    <h1>Add Review</h1>
     <% if (error) { %>
         <p style="color: red;"><%= error %></p>
     <% } %>
     <form method="post" action="/add_review">
-        <input type="hidden" name="listName" value="<%= listName %>">
+        <label for="listName">Stock List Name:</label>
+        <input type="text" id="listName" name="listName" required>
         <label for="text">Review:</label>
         <textarea id="text" name="text" maxlength="4000" required></textarea>
         <button type="submit">Submit</button>

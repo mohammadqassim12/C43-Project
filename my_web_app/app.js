@@ -15,6 +15,7 @@ const pool = new Pool({
 
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
     secret: 'your_secret_key',
@@ -288,31 +289,6 @@ app.post('/accept_friend_request', async (req, res) => {
     }
 });
 
-// Add Review
-app.get('/add_review', (req, res) => {
-    if (!req.session.userId) {
-        res.redirect('/login');
-    } else {
-        res.render('add_review');
-    }
-});
-
-app.post('/add_review', async (req, res) => {
-    const { listName, text } = req.body;
-    await pool.query('INSERT INTO Reviews (userID, listName, text) VALUES ($1, $2, $3)', [req.session.userId, listName, text]);
-    res.redirect('/dashboard');
-});
-
-// View Reviews
-app.get('/view_reviews', async (req, res) => {
-    if (!req.session.userId) {
-        res.redirect('/login');
-    } else {
-        const result = await pool.query('SELECT * FROM Reviews WHERE userID = $1', [req.session.userId]);
-        res.render('view_reviews', { reviews: result.rows });
-    }
-});
-
 // View Friends
 app.get('/view_friends', async (req, res) => {
     if (!req.session.userId) {
@@ -449,10 +425,194 @@ app.get('/view_stock_list/:listName', async (req, res) => {
         const listName = req.params.listName;
         try {
             const result = await pool.query(
-                'SELECT c.code, c.timestamp, c.shares, s.open, s.high, s.low, s.close, s.volume FROM Contains c JOIN Stocks s ON c.code = s.code AND c.timestamp = s.timestamp WHERE c.listName = $1',
+                'SELECT c.code, c.shares FROM Contains c JOIN Stocks s ON c.code = s.code AND c.timestamp = s.timestamp WHERE c.listName = $1',
                 [listName]
             );
             res.render('view_stock_list', { stocks: result.rows, listName });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
+    }
+});
+
+// Render the form for sharing a stock list
+app.get('/share_stock_list', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        res.render('share_stock_list');
+    }
+});
+
+// Handle form submission for sharing a stock list
+app.post('/share_stock_list', async (req, res) => {
+    const { listName, userID } = req.body;
+    try {
+        await pool.query('INSERT INTO Share (userID, listName) VALUES ($1, $2)', [userID, listName]);
+        res.redirect('/dashboard');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+// Route to render the add_review page
+app.get('/add_review', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        res.render('add_review', { error: req.session.error || null });
+        req.session.error = null; // Clear the error after displaying
+    }
+});
+
+// View reviews for a stock list
+app.get('/view_reviews/:listName', async (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const listName = req.params.listName;
+        try {
+            const stockListResult = await pool.query('SELECT * FROM StockLists WHERE listName = $1', [listName]);
+            if (stockListResult.rows.length > 0) {
+                const stockList = stockListResult.rows[0];
+                let reviewsResult;
+
+                if (stockList.visibility === 'public' || stockList.userid === req.session.userId) {
+                    reviewsResult = await pool.query(
+                        'SELECT r.reviewID, r.userID, r.text, u.name FROM Reviews r JOIN ReviewOn ro ON r.reviewID = ro.reviewID JOIN Users u ON r.userID = u.userID WHERE ro.listName = $1',
+                        [listName]
+                    );
+                } else {
+                    reviewsResult = await pool.query(
+                        'SELECT r.reviewID, r.userID, r.text, u.name FROM Reviews r JOIN ReviewOn ro ON r.reviewID = ro.reviewID JOIN Users u ON r.userID = u.userID WHERE ro.listName = $1 AND (ro.userID = $2 OR $3 = $4)',
+                        [listName, req.session.userId, stockList.userid, req.session.userId]
+                    );
+                }
+
+                res.render('view_reviews', { reviews: reviewsResult.rows, listName });
+            } else {
+                res.status(404).send('Stock list not found');
+            }
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
+    }
+});
+
+// Render the form for editing a review
+app.get('/edit_review/:reviewID', async (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const reviewID = req.params.reviewID;
+        const reviewResult = await pool.query('SELECT * FROM Reviews WHERE reviewID = $1 AND userID = $2', [reviewID, req.session.userId]);
+
+        if (reviewResult.rows.length > 0) {
+            res.render('edit_review', { review: reviewResult.rows[0] });
+        } else {
+            res.status(403).send('Forbidden');
+        }
+    }
+});
+
+// Handle form submission for editing a review
+app.post('/edit_review', async (req, res) => {
+    const { reviewID, text, listName } = req.body;
+    try {
+        await pool.query('UPDATE Reviews SET text = $1 WHERE reviewID = $2 AND userID = $3', [text, reviewID, req.session.userId]);
+        res.redirect(`/view_reviews/${listName}`);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+// Handle review deletion
+app.post('/delete_review', async (req, res) => {
+    const { reviewID, listName } = req.body;
+    try {
+        const reviewResult = await pool.query('SELECT * FROM ReviewOn WHERE reviewID = $1', [reviewID]);
+
+        if (reviewResult.rows.length > 0) {
+            const review = reviewResult.rows[0];
+
+            if (review.userid === req.session.userId) {
+                await pool.query('DELETE FROM Reviews WHERE reviewID = $1', [reviewID]);
+                await pool.query('DELETE FROM ReviewOn WHERE reviewID = $1', [reviewID]);
+                res.redirect(`/view_reviews/${listName}`);
+            } else {
+                res.status(403).send('Forbidden');
+            }
+        } else {
+            res.status(404).send('Review not found');
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+// Route to render the add_review page
+app.get('/add_review', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        res.render('add_review', { error: req.session.error || null });
+        req.session.error = null; // Clear the error after displaying
+    }
+});
+
+// Handle form submission for adding a review
+app.post('/add_review', async (req, res) => {
+    const { listName, text } = req.body;
+    try {
+        // Check if a review already exists for this list by this user
+        const existingReview = await pool.query(
+            'SELECT * FROM ReviewOn WHERE userID = $1 AND listName = $2',
+            [req.session.userId, listName]
+        );
+
+        if (existingReview.rows.length > 0) {
+            req.session.error = 'You have already reviewed this stock list.';
+            res.redirect('/add_review');
+        } else {
+            // Insert the new review
+            const reviewResult = await pool.query(
+                'INSERT INTO Reviews (userID, text) VALUES ($1, $2) RETURNING reviewID',
+                [req.session.userId, text]
+            );
+            const reviewID = reviewResult.rows[0].reviewid;
+
+            await pool.query(
+                'INSERT INTO ReviewOn (reviewID, userID, listName) VALUES ($1, $2, $3)',
+                [reviewID, req.session.userId, listName]
+            );
+            res.redirect(`/view_reviews/${listName}`);
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+
+
+app.get('/view_all_stock_lists', async (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        try {
+            const result = await pool.query(
+                `SELECT * FROM StockLists 
+                 WHERE userID = $1 
+                    OR visibility = 'public' 
+                    OR listName IN (SELECT listName FROM Share WHERE userID = $1)`,
+                [req.session.userId]
+            );
+            res.render('view_all_stock_lists', { stockLists: result.rows });
         } catch (err) {
             console.error(err);
             res.status(500).send('Internal Server Error');

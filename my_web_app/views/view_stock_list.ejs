@@ -54,26 +54,14 @@
         <thead>
             <tr>
                 <th>Stock Code</th>
-                <th>Timestamp</th>
                 <th>Shares</th>
-                <th>Open</th>
-                <th>High</th>
-                <th>Low</th>
-                <th>Close</th>
-                <th>Volume</th>
             </tr>
         </thead>
         <tbody>
             <% stocks.forEach(stock => { %>
                 <tr>
                     <td><%= stock.code %></td>
-                    <td><%= stock.timestamp %></td>
                     <td><%= stock.shares %></td>
-                    <td><%= stock.open %></td>
-                    <td><%= stock.high %></td>
-                    <td><%= stock.low %></td>
-                    <td><%= stock.close %></td>
-                    <td><%= stock.volume %></td>
                 </tr>
             <% }) %>
         </tbody>

@@ -7,21 +7,35 @@
 </head>
 <body>
     <h1>Reviews for <%= listName %></h1>
-    <% reviews.forEach(review => { %>
-        <div>
-            <p><strong><%= review.name %>:</strong> <%= review.text %></p>
-            <% if (review.userid === locals.userID || locals.userID === locals.listOwner) { %>
-                <form method="post" action="/delete_review">
-                    <input type="hidden" name="reviewID" value="<%= review.reviewid %>">
-                    <input type="hidden" name="listName" value="<%= listName %>">
-                    <button type="submit">Delete</button>
-                </form>
-            <% } %>
-            <% if (review.userid === locals.userID) { %>
-                <a href="/edit_review/<%= review.reviewid %>">Edit</a>
-            <% } %>
-        </div>
-    <% }); %>
+    <table>
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Review</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% reviews.forEach(review => { %>
+                <tr>
+                    <td><%= review.name %></td>
+                    <td><%= review.text %></td>
+                    <td>
+                        <% if (review.userid === locals.userID) { %>
+                            <form action="/edit_review/<%= review.reviewid %>" method="get" style="display:inline;">
+                                <button type="submit">Edit</button>
+                            </form>
+                            <form action="/delete_review" method="post" style="display:inline;">
+                                <input type="hidden" name="reviewID" value="<%= review.reviewid %>">
+                                <input type="hidden" name="listName" value="<%= listName %>">
+                                <button type="submit">Delete</button>
+                            </form>
+                        <% } %>
+                    </td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
     <a href="/dashboard">Back to Dashboard</a>
 </body>
 </html>

@@ -9,9 +9,10 @@
     <h1>Edit Review</h1>
     <form method="post" action="/edit_review">
         <input type="hidden" name="reviewID" value="<%= review.reviewid %>">
+        <input type="hidden" name="listName" value="<%= review.listname %>">
         <label for="text">Review:</label>
         <textarea id="text" name="text" maxlength="4000" required><%= review.text %></textarea>
-        <button type="submit">Submit</button>
+        <button type="submit">Save</button>
     </form>
     <a href="/dashboard">Back to Dashboard</a>
 </body>
