@@ -127,8 +127,25 @@ app.get('/create_portfolio', (req, res) => {
 
 app.post('/create_portfolio', async (req, res) => {
     const { cashAmount } = req.body;
-    await pool.query('INSERT INTO Portfolios (userID, cashAmount) VALUES ($1, $2)', [req.session.userId, cashAmount]);
-    res.redirect('/dashboard');
+    try {
+        // Insert the new portfolio and get its ID
+        const result = await pool.query('INSERT INTO Portfolios (userID, cashAmount) VALUES ($1, $2) RETURNING portfolioID', [req.session.userId, cashAmount]);
+        const portfolioID = result.rows[0].portfolioid;
+
+        // Create a unique stock list name
+        const listName = `Portfolio_${portfolioID}_StockList`;
+
+        // Insert a new private stock list associated with the portfolio
+        await pool.query('INSERT INTO StockLists (listName, userID, visibility) VALUES ($1, $2, $3)', [listName, req.session.userId, 'private']);
+
+        // Associate the stock list with the portfolio
+        await pool.query('INSERT INTO Includes (portfolioID, listName) VALUES ($1, $2)', [portfolioID, listName]);
+
+        res.redirect('/dashboard');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
 });
 
 // View Portfolios
@@ -136,8 +153,24 @@ app.get('/view_portfolios', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        const result = await pool.query('SELECT * FROM Portfolios WHERE userID = $1', [req.session.userId]);
-        res.render('view_portfolios', { portfolios: result.rows });
+        try {
+            const portfoliosResult = await pool.query('SELECT * FROM Portfolios WHERE userID = $1', [req.session.userId]);
+            const portfolios = portfoliosResult.rows;
+
+            // Fetch associated stock lists for each portfolio
+            for (const portfolio of portfolios) {
+                const stockListsResult = await pool.query(
+                    'SELECT sl.listName FROM Includes i JOIN StockLists sl ON i.listName = sl.listName WHERE i.portfolioID = $1',
+                    [portfolio.portfolioid]
+                );
+                portfolio.stockLists = stockListsResult.rows;
+            }
+
+            res.render('view_portfolios', { portfolios });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
     }
 });
 
@@ -656,6 +689,63 @@ app.post('/delete_review', async (req, res) => {
     }
 });
 
+app.get('/deposit/:portfolioID', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const { portfolioID } = req.params;
+        res.render('deposit', { portfolioID, error: req.session.error || null });
+        req.session.error = null;
+    }
+});
+
+// Handle form submission for depositing cash
+app.post('/deposit', async (req, res) => {
+    const { portfolioID, amount } = req.body;
+    try {
+        await pool.query('UPDATE Portfolios SET cashAmount = cashAmount + $1 WHERE portfolioID = $2 AND userID = $3', 
+                         [amount, portfolioID, req.session.userId]);
+        res.redirect('/view_portfolios');
+    } catch (err) {
+        console.error(err);
+        req.session.error = 'Deposit failed.';
+        res.redirect(`/deposit/${portfolioID}`);
+    }
+});
+
+// Route to render the withdraw form
+app.get('/withdraw/:portfolioID', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const { portfolioID } = req.params;
+        res.render('withdraw', { portfolioID, error: req.session.error || null });
+        req.session.error = null;
+    }
+});
+
+// Handle form submission for withdrawing cash
+app.post('/withdraw', async (req, res) => {
+    const { portfolioID, amount } = req.body;
+    try {
+        const result = await pool.query('SELECT cashAmount FROM Portfolios WHERE portfolioID = $1 AND userID = $2', 
+                                        [portfolioID, req.session.userId]);
+        const cashAmount = result.rows[0].cashamount;
+
+        if (cashAmount < amount) {
+            req.session.error = 'Insufficient funds.';
+            res.redirect(`/withdraw/${portfolioID}`);
+        } else {
+            await pool.query('UPDATE Portfolios SET cashAmount = cashAmount - $1 WHERE portfolioID = $2 AND userID = $3', 
+                             [amount, portfolioID, req.session.userId]);
+            res.redirect('/view_portfolios');
+        }
+    } catch (err) {
+        console.error(err);
+        req.session.error = 'Withdrawal failed.';
+        res.redirect(`/withdraw/${portfolioID}`);
+    }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
