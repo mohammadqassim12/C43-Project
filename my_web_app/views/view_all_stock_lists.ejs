@@ -3,17 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View All Stock Lists</title>
+    <title>All Accessible Stock Lists</title>
 </head>
 <body>
     <h1>All Accessible Stock Lists</h1>
-    <ul>
-        <% stockLists.forEach(stockList => { %>
-            <li>
-                <a href="/view_stock_list/<%= stockList.listname %>"><%= stockList.listname %> (<%= stockList.visibility %>)</a>
-            </li>
-        <% }) %>
-    </ul>
+    <table>
+        <thead>
+            <tr>
+                <th>List Name</th>
+                <th>Visibility</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% stockLists.forEach(stockList => { %>
+                <tr>
+                    <td><%= stockList.listname %></td>
+                    <td><%= stockList.visibility %></td>
+                    <td>
+                        <a href="/view_reviews/<%= stockList.listname %>">View Reviews</a>
+                        <% if (stockList.userid !== locals.userId) { %>
+                            <a href="/add_review/<%= stockList.listname %>">Add Review</a>
+                        <% } %>
+                    </td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
     <a href="/dashboard">Back to Dashboard</a>
 </body>
 </html>

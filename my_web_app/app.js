@@ -441,7 +441,8 @@ app.get('/share_stock_list', (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        res.render('share_stock_list');
+        res.render('share_stock_list', { error: req.session.error || null });
+        req.session.error = null; // Clear the error after displaying
     }
 });
 
@@ -449,8 +450,19 @@ app.get('/share_stock_list', (req, res) => {
 app.post('/share_stock_list', async (req, res) => {
     const { listName, userID } = req.body;
     try {
-        await pool.query('INSERT INTO Share (userID, listName) VALUES ($1, $2)', [userID, listName]);
-        res.redirect('/dashboard');
+        // Check if the stock list is public
+        const stockListResult = await pool.query(
+            'SELECT * FROM StockLists WHERE listName = $1 AND visibility = $2',
+            [listName, 'public']
+        );
+
+        if (stockListResult.rows.length === 0) {
+            req.session.error = 'Only public stock lists can be shared.';
+            res.redirect('/share_stock_list');
+        } else {
+            await pool.query('INSERT INTO Share (userID, listName) VALUES ($1, $2)', [userID, listName]);
+            res.redirect('/dashboard');
+        }
     } catch (err) {
         console.error(err);
         res.status(500).send('Internal Server Error');
@@ -458,12 +470,97 @@ app.post('/share_stock_list', async (req, res) => {
 });
 
 // Route to render the add_review page
-app.get('/add_review', (req, res) => {
+app.get('/add_review/:listName', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        res.render('add_review', { error: req.session.error || null });
-        req.session.error = null; // Clear the error after displaying
+        const { listName } = req.params;
+        const stockListResult = await pool.query(
+            `SELECT * FROM StockLists 
+             WHERE listName = $1 AND (
+                 visibility = 'public' 
+                 OR listName IN (SELECT listName FROM Share WHERE userID = $2)
+                 OR userID = $2
+             )`,
+            [listName, req.session.userId]
+        );
+
+        if (stockListResult.rows.length === 0 || stockListResult.rows[0].userid === req.session.userId) {
+            req.session.error = 'You do not have access to this stock list or you own it.';
+            res.redirect('/view_all_stock_lists');
+        } else {
+            res.render('add_review', { listName, error: req.session.error || null });
+            req.session.error = null; // Clear the error after displaying
+        }
+    }
+});
+
+// Handle form submission for adding a review
+app.post('/add_review', async (req, res) => {
+    const { listName, text } = req.body;
+    try {
+        // Check if the stock list is accessible to the user and not owned by them
+        const stockListResult = await pool.query(
+            `SELECT * FROM StockLists 
+             WHERE listName = $1 AND (
+                 visibility = 'public' 
+                 OR listName IN (SELECT listName FROM Share WHERE userID = $2)
+             ) AND userID != $2`,
+            [listName, req.session.userId]
+        );
+
+        if (stockListResult.rows.length === 0) {
+            req.session.error = 'You do not have access to this stock list or it is your own.';
+            res.redirect('/view_all_stock_lists');
+        } else {
+            // Check if a review already exists for this list by this user
+            const existingReview = await pool.query(
+                'SELECT * FROM ReviewOn WHERE userID = $1 AND listName = $2',
+                [req.session.userId, listName]
+            );
+
+            if (existingReview.rows.length > 0) {
+                req.session.error = 'You have already reviewed this stock list.';
+                res.redirect(`/add_review/${listName}`);
+            } else {
+                // Insert the new review
+                const reviewResult = await pool.query(
+                    'INSERT INTO Reviews (userID, text) VALUES ($1, $2) RETURNING reviewID',
+                    [req.session.userId, text]
+                );
+                const reviewID = reviewResult.rows[0].reviewid;
+
+                await pool.query(
+                    'INSERT INTO ReviewOn (reviewID, userID, listName) VALUES ($1, $2, $3)',
+                    [reviewID, req.session.userId, listName]
+                );
+                res.redirect(`/view_reviews/${listName}`);
+            }
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+// View all accessible stock lists
+app.get('/view_all_stock_lists', async (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        try {
+            const result = await pool.query(
+                `SELECT * FROM StockLists 
+                 WHERE visibility = 'public' 
+                 OR userID = $1 
+                 OR listName IN (SELECT listName FROM Share WHERE userID = $1)`,
+                [req.session.userId]
+            );
+            res.render('view_all_stock_lists', { stockLists: result.rows });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
     }
 });
 
@@ -479,7 +576,7 @@ app.get('/view_reviews/:listName', async (req, res) => {
                 const stockList = stockListResult.rows[0];
                 let reviewsResult;
 
-                if (stockList.visibility === 'public' || stockList.userid === req.session.userId) {
+                if (stockList.visibility === 'public' || stockList.userid === req.session.userId || req.session.userId === stockList.userid) {
                     reviewsResult = await pool.query(
                         'SELECT r.reviewID, r.userID, r.text, u.name FROM Reviews r JOIN ReviewOn ro ON r.reviewID = ro.reviewID JOIN Users u ON r.userID = u.userID WHERE ro.listName = $1',
                         [listName]
@@ -491,7 +588,7 @@ app.get('/view_reviews/:listName', async (req, res) => {
                     );
                 }
 
-                res.render('view_reviews', { reviews: reviewsResult.rows, listName });
+                res.render('view_reviews', { reviews: reviewsResult.rows, listName, stockListUserId: stockList.userid });
             } else {
                 res.status(404).send('Stock list not found');
             }
@@ -511,7 +608,7 @@ app.get('/edit_review/:reviewID', async (req, res) => {
         const reviewResult = await pool.query('SELECT * FROM Reviews WHERE reviewID = $1 AND userID = $2', [reviewID, req.session.userId]);
 
         if (reviewResult.rows.length > 0) {
-            res.render('edit_review', { review: reviewResult.rows[0] });
+            res.render('edit_review', { review: reviewResult.rows[0], listName: req.query.listName });
         } else {
             res.status(403).send('Forbidden');
         }
@@ -539,7 +636,11 @@ app.post('/delete_review', async (req, res) => {
         if (reviewResult.rows.length > 0) {
             const review = reviewResult.rows[0];
 
-            if (review.userid === req.session.userId) {
+            // Ensure only the review author or the stock list creator can delete the review
+            const stockListResult = await pool.query('SELECT * FROM StockLists WHERE listName = $1', [listName]);
+            const stockList = stockListResult.rows[0];
+
+            if (review.userid === req.session.userId || stockList.userid === req.session.userId) {
                 await pool.query('DELETE FROM Reviews WHERE reviewID = $1', [reviewID]);
                 await pool.query('DELETE FROM ReviewOn WHERE reviewID = $1', [reviewID]);
                 res.redirect(`/view_reviews/${listName}`);
@@ -555,70 +656,6 @@ app.post('/delete_review', async (req, res) => {
     }
 });
 
-// Route to render the add_review page
-app.get('/add_review', (req, res) => {
-    if (!req.session.userId) {
-        res.redirect('/login');
-    } else {
-        res.render('add_review', { error: req.session.error || null });
-        req.session.error = null; // Clear the error after displaying
-    }
-});
-
-// Handle form submission for adding a review
-app.post('/add_review', async (req, res) => {
-    const { listName, text } = req.body;
-    try {
-        // Check if a review already exists for this list by this user
-        const existingReview = await pool.query(
-            'SELECT * FROM ReviewOn WHERE userID = $1 AND listName = $2',
-            [req.session.userId, listName]
-        );
-
-        if (existingReview.rows.length > 0) {
-            req.session.error = 'You have already reviewed this stock list.';
-            res.redirect('/add_review');
-        } else {
-            // Insert the new review
-            const reviewResult = await pool.query(
-                'INSERT INTO Reviews (userID, text) VALUES ($1, $2) RETURNING reviewID',
-                [req.session.userId, text]
-            );
-            const reviewID = reviewResult.rows[0].reviewid;
-
-            await pool.query(
-                'INSERT INTO ReviewOn (reviewID, userID, listName) VALUES ($1, $2, $3)',
-                [reviewID, req.session.userId, listName]
-            );
-            res.redirect(`/view_reviews/${listName}`);
-        }
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('Internal Server Error');
-    }
-});
-
-
-
-app.get('/view_all_stock_lists', async (req, res) => {
-    if (!req.session.userId) {
-        res.redirect('/login');
-    } else {
-        try {
-            const result = await pool.query(
-                `SELECT * FROM StockLists 
-                 WHERE userID = $1 
-                    OR visibility = 'public' 
-                    OR listName IN (SELECT listName FROM Share WHERE userID = $1)`,
-                [req.session.userId]
-            );
-            res.render('view_all_stock_lists', { stockLists: result.rows });
-        } catch (err) {
-            console.error(err);
-            res.status(500).send('Internal Server Error');
-        }
-    }
-});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

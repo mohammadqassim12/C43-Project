@@ -3,20 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add Review</title>
+    <title>Add Review for <%= listName %></title>
 </head>
 <body>
-    <h1>Add Review</h1>
+    <h1>Add Review for <%= listName %></h1>
     <% if (error) { %>
         <p style="color: red;"><%= error %></p>
     <% } %>
     <form method="post" action="/add_review">
-        <label for="listName">Stock List Name:</label>
-        <input type="text" id="listName" name="listName" required>
+        <input type="hidden" name="listName" value="<%= listName %>">
         <label for="text">Review:</label>
-        <textarea id="text" name="text" maxlength="4000" required></textarea>
-        <button type="submit">Submit</button>
+        <textarea name="text" id="text" rows="4" cols="50"></textarea>
+        <button type="submit">Add Review</button>
     </form>
-    <a href="/dashboard">Back to Dashboard</a>
+    <a href="/view_all_stock_lists">Back to Stock Lists</a>
 </body>
 </html>

@@ -21,11 +21,15 @@
                     <td><%= review.name %></td>
                     <td><%= review.text %></td>
                     <td>
-                        <% if (review.userid === locals.userID) { %>
-                            <form action="/edit_review/<%= review.reviewid %>" method="get" style="display:inline;">
-                                <button type="submit">Edit</button>
+                        <% if (review.userid === locals.userId) { %>
+                            <a href="/edit_review/<%= review.reviewid %>?listName=<%= listName %>">Edit</a>
+                            <form method="post" action="/delete_review" style="display:inline;">
+                                <input type="hidden" name="reviewID" value="<%= review.reviewid %>">
+                                <input type="hidden" name="listName" value="<%= listName %>">
+                                <button type="submit">Delete</button>
                             </form>
-                            <form action="/delete_review" method="post" style="display:inline;">
+                        <% } else if (stockListUserId === locals.userId) { %>
+                            <form method="post" action="/delete_review" style="display:inline;">
                                 <input type="hidden" name="reviewID" value="<%= review.reviewid %>">
                                 <input type="hidden" name="listName" value="<%= listName %>">
                                 <button type="submit">Delete</button>
@@ -36,6 +40,6 @@
             <% }) %>
         </tbody>
     </table>
-    <a href="/dashboard">Back to Dashboard</a>
+    <a href="/view_all_stock_lists">Back to Stock Lists</a>
 </body>
 </html>
