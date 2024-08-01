@@ -576,7 +576,7 @@ app.get('/view_reviews/:listName', async (req, res) => {
                 const stockList = stockListResult.rows[0];
                 let reviewsResult;
 
-                if (stockList.visibility === 'public' || stockList.userid === req.session.userId || req.session.userId === stockList.userid) {
+                if (stockList.visibility === 'public' || stockList.userid === req.session.userId) {
                     reviewsResult = await pool.query(
                         'SELECT r.reviewID, r.userID, r.text, u.name FROM Reviews r JOIN ReviewOn ro ON r.reviewID = ro.reviewID JOIN Users u ON r.userID = u.userID WHERE ro.listName = $1',
                         [listName]
@@ -588,7 +588,7 @@ app.get('/view_reviews/:listName', async (req, res) => {
                     );
                 }
 
-                res.render('view_reviews', { reviews: reviewsResult.rows, listName, userId: req.session.userId, stockListUserId: stockList.userid });
+                res.render('view_reviews', { reviews: reviewsResult.rows, listName, stockListUserId: stockList.userid, userId: req.session.userId });
             } else {
                 res.status(404).send('Stock list not found');
             }
@@ -634,11 +634,13 @@ app.post('/delete_review', async (req, res) => {
     const { reviewID, listName } = req.body;
     try {
         const reviewResult = await pool.query('SELECT * FROM ReviewOn WHERE reviewID = $1', [reviewID]);
+        const stockListResult = await pool.query('SELECT * FROM StockLists WHERE listName = $1', [listName]);
 
-        if (reviewResult.rows.length > 0) {
+        if (reviewResult.rows.length > 0 && stockListResult.rows.length > 0) {
             const review = reviewResult.rows[0];
+            const stockList = stockListResult.rows[0];
 
-            if (review.userid === req.session.userId || req.session.userId === stockListUserId) {
+            if (review.userid === req.session.userId || req.session.userId === stockList.userid) {
                 await pool.query('DELETE FROM ReviewOn WHERE reviewID = $1', [reviewID]);
                 await pool.query('DELETE FROM Reviews WHERE reviewID = $1', [reviewID]);
                 res.redirect(`/view_reviews/${listName}`);
@@ -646,7 +648,7 @@ app.post('/delete_review', async (req, res) => {
                 res.status(403).send('Forbidden');
             }
         } else {
-            res.status(404).send('Review not found');
+            res.status(404).send('Review or Stock list not found');
         }
     } catch (err) {
         console.error(err);
