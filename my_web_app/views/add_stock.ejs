@@ -5,12 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Stock</title>
     <link rel="stylesheet" href="/styles.css">
+    <script>
+        function handleStockCodeChange() {
+            const stockCodeSelect = document.getElementById('code');
+            const customStockCodeInput = document.getElementById('customStockCode');
+            if (stockCodeSelect.value === 'new') {
+                customStockCodeInput.style.display = 'block';
+            } else {
+                customStockCodeInput.style.display = 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            handleStockCodeChange();
+        });
+    </script>
 </head>
 <body>
     <h1>Add Stock</h1>
     <form method="post" action="/add_stock">
         <label for="code">Code:</label>
-        <input type="text" id="code" name="code" required>
+        <select id="code" name="code" onchange="handleStockCodeChange()" required>
+            <% stockCodes.forEach(code => { %>
+                <option value="<%= code %>"><%= code %></option>
+            <% }) %>
+            <option value="new">Create New</option>
+        </select>
+        <div id="customStockCode" style="display: none;">
+            <label for="newCode">New Stock Code:</label>
+            <input type="text" id="newCode" name="newCode">
+        </div>
         <label for="timestamp">Timestamp:</label>
         <input type="datetime-local" id="timestamp" name="timestamp" required>
         <label for="open">Open:</label>
