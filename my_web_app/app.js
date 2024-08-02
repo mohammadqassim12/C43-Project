@@ -570,7 +570,7 @@ app.get('/view_stock_list/:listName', async (req, res) => {
                     s1.code, s2.code`,
                 [listName]
             );
-
+          
             res.render('view_stock_list', {
                 stocks: stockListResult.rows,
                 listName,
