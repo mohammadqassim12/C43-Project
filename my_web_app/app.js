@@ -570,7 +570,7 @@ app.get('/view_stock_list/:listName', async (req, res) => {
                     s1.code, s2.code`,
                 [listName]
             );
-
+          
             res.render('view_stock_list', {
                 stocks: stockListResult.rows,
                 listName,
@@ -579,7 +579,6 @@ app.get('/view_stock_list/:listName', async (req, res) => {
                 correlationData: correlationResult.rows,
                 userId: req.session.userId
             });
-
         } catch (err) {
             console.error(err);
             res.status(500).send('Internal Server Error');
