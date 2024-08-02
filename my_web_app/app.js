@@ -1166,52 +1166,38 @@ app.post('/sell_stock', async (req, res) => {
 });
 
 
-// View historical performance of a stock
+// Route to display historical performance and future prediction
 app.get('/historical_performance/:stockCode', async (req, res) => {
     const stockCode = req.params.stockCode;
-    const interval = req.query.interval || '5y'; // Default to 5 years if not specified
-    let startDate;
-
-    // Calculate start date based on the selected interval
-    const endDate = '2018-02-08'; // Last date in the dataset
-    switch (interval) {
-        case '1w':
-            startDate = '2018-02-01'; // 1 week before endDate
-            break;
-        case '1m':
-            startDate = '2018-01-08'; // 1 month before endDate
-            break;
-        case '3m':
-            startDate = '2017-11-08'; // 3 months before endDate
-            break;
-        case '1y':
-            startDate = '2017-02-08'; // 1 year before endDate
-            break;
-        case '5y':
-        default:
-            startDate = '2013-02-08'; // 5 years before endDate
-            break;
-    }
+    const pastInterval = req.query.pastInterval || '5y';  // Default to 5 years
+    const futureInterval = req.query.futureInterval || '1y';  // Default to 1 year
 
     try {
-        const result = await pool.query(
-            `SELECT timestamp, close 
+        const pastDate = calculatePastDate(pastInterval);
+        const historicalData = await pool.query(
+            `SELECT to_char(timestamp, 'YYYY-MM-DD') AS timestamp, close 
              FROM Stocks 
-             WHERE code = $1 AND timestamp >= $2 
-             ORDER BY timestamp ASC`,
-            [stockCode, startDate]
+             WHERE code = $1 AND timestamp >= $2
+             ORDER BY timestamp`,
+            [stockCode, pastDate]
         );
 
-        // Ensure data is sanitized and formatted correctly
-        const allData = result.rows.map((row, index) => ({
-            index: index + 1, // Add index starting from 1
-            close: row.close
+        const pastData = historicalData.rows.map((row, index) => ({
+            index: index + 1,
+            close: parseFloat(row.close)
         }));
+
+        const averageGrowthRate = calculateAverageGrowthRate(pastData);
+        const recessionEvents = identifyRecessionEvents(pastData);
+        const lastClosePrice = pastData[pastData.length - 1].close;
+        const futureData = generateFutureData(lastClosePrice, futureInterval, pastData.length, averageGrowthRate, recessionEvents);
 
         res.render('historical_performance', {
             stockCode,
-            interval,
-            allData
+            pastData,
+            futureData,
+            pastInterval,
+            futureInterval
         });
     } catch (err) {
         console.error(err);
@@ -1219,7 +1205,87 @@ app.get('/historical_performance/:stockCode', async (req, res) => {
     }
 });
 
+function calculatePastDate(interval) {
+    const endDate = new Date('2018-02-08');
+    switch (interval) {
+        case '1w':
+            endDate.setDate(endDate.getDate() - 7);
+            break;
+        case '1m':
+            endDate.setMonth(endDate.getMonth() - 1);
+            break;
+        case '3m':
+            endDate.setMonth(endDate.getMonth() - 3);
+            break;
+        case '1y':
+            endDate.setFullYear(endDate.getFullYear() - 1);
+            break;
+        case '5y':
+        default:
+            endDate.setFullYear(endDate.getFullYear() - 5);
+            break;
+    }
+    return endDate.toISOString().split('T')[0];
+}
 
+function calculateAverageGrowthRate(pastData) {
+    if (pastData.length < 2) return 0;
+
+    const growthRates = pastData.slice(1).map((data, index) => {
+        const previousClose = pastData[index].close;
+        return (data.close - previousClose) / previousClose;
+    });
+
+    return growthRates.reduce((sum, rate) => sum + rate, 0) / growthRates.length;
+}
+
+function identifyRecessionEvents(pastData) {
+    const recessionEvents = [];
+    for (let i = 1; i < pastData.length; i++) {
+        const drop = (pastData[i].close - pastData[i - 1].close) / pastData[i - 1].close;
+        if (drop <= -0.7) { // Example threshold for a sharp decline (10%)
+            recessionEvents.push({ index: i, drop });
+        }
+    }
+    return recessionEvents;
+}
+
+function generateFutureData(lastClosePrice, interval, pastDataLength, averageGrowthRate, recessionEvents) {
+    const futureData = [];
+    let currentPrice = lastClosePrice;
+
+    const totalDays = {
+        '1w': 7,
+        '1m': 30,
+        '3m': 90,
+        '1y': 365,
+        '5y': 365 * 5
+    }[interval] || 365;
+
+    for (let i = 1; i <= totalDays; i++) {
+        if (i % 80 === 0) {
+            currentPrice *= (1 - (Math.random() * 0.04 + 0.02));
+        } else {
+            currentPrice *= 1 + averageGrowthRate + (Math.random() * 0.01 - 0.005); // Random fluctuation
+        }
+        futureData.push({
+            index: pastDataLength + i,
+            close: currentPrice
+        });
+    }
+
+    if (totalDays >= 365) { 
+        if (recessionEvents.length > 0) {
+            const randomEvent = recessionEvents[Math.floor(Math.random() * recessionEvents.length)];
+            const recessionIndex = Math.floor(Math.random() * (totalDays - randomEvent.index)) + randomEvent.index;
+            for (let i = recessionIndex; i < futureData.length; i++) {
+                futureData[i].close *= (1 + randomEvent.drop * 1.5);
+            }
+        }
+    }
+
+    return futureData;
+}
 
 
 const PORT = process.env.PORT || 3000;
