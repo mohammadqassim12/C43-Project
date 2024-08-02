@@ -436,18 +436,27 @@ app.get('/view_stock_list/:listName', async (req, res) => {
 
             // Fetch Coefficient of Variation and Beta
             const cvBetaResult = await pool.query(
-                `SELECT
+                `WITH MarketStats AS (
+                    SELECT
+                        stddev_samp(close) / avg(close) AS market_cv,
+                        var_pop(close) AS market_var
+                    FROM
+                        Stocks
+                )
+                SELECT
                     s.code,
                     stddev_samp(s.close) / avg(s.close) AS coefficient_of_variation,
-                    (covar_pop(s.close, benchmark.close) / var_pop(benchmark.close)) AS beta
-                 FROM
+                    (covar_pop(s.close, m.close) / ms.market_var) AS beta
+                FROM
                     Stocks s
-                 JOIN
-                    Stocks benchmark ON benchmark.code = 'S&P500' AND s.timestamp = benchmark.timestamp
-                 WHERE
+                CROSS JOIN
+                    MarketStats ms
+                JOIN
+                    Stocks m ON s.timestamp = m.timestamp
+                WHERE
                     s.code IN (SELECT code FROM Contains WHERE listName = $1)
-                 GROUP BY
-                    s.code`,
+                GROUP BY
+                    s.code, ms.market_var`,
                 [listName]
             );
 
