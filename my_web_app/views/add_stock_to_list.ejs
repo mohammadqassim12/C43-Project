@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Stock to Stock List</title>
+</head>
+<body>
+    <h1>Add Stock to Stock List</h1>
+    <% if (error) { %>
+        <p style="color: red;"><%= error %></p>
+    <% } %>
+    <form action="/add_stock_to_list" method="post">
+        <div>
+            <label for="code">Stock Code:</label>
+            <input type="text" id="code" name="code" required>
+        </div>
+        <div>
+            <label for="listName">Stock List Name:</label>
+            <select id="listName" name="listName" required>
+                <% stockLists.forEach(list => { %>
+                    <option value="<%= list.listname %>"><%= list.listname %></option>
+                <% }) %>
+            </select>
+        </div>
+        <div>
+            <label for="shares">Shares:</label>
+            <input type="number" id="shares" name="shares" required>
+        </div>
+        <button type="submit">Add Stock</button>
+    </form>
+    <a href="/dashboard">Back to Dashboard</a>
+</body>
+</html>

@@ -12,6 +12,7 @@ const pool = new Pool({
     password: 'admin',
     port: 5432,
 });
+const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
 
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -66,17 +67,36 @@ app.get('/dashboard', async (req, res) => {
     } else {
         try {
             const userResult = await pool.query('SELECT * FROM Users WHERE userID = $1', [req.session.userId]);
-            const portfolioResult = await pool.query('SELECT * FROM Portfolios WHERE userID = $1', [req.session.userId]);
-
-            const portfolios = await Promise.all(portfolioResult.rows.map(async (portfolio) => {
-                const stockListResult = await pool.query('SELECT listName FROM Includes WHERE portfolioID = $1', [portfolio.portfolioid]);
-                return {
-                    ...portfolio,
-                    stockLists: stockListResult.rows
-                };
-            }));
-
             const user = userResult.rows[0];
+
+            const portfoliosResult = await pool.query('SELECT * FROM Portfolios WHERE userID = $1', [req.session.userId]);
+            const portfolios = portfoliosResult.rows;
+
+            for (let portfolio of portfolios) {
+                const stockListsResult = await pool.query('SELECT * FROM Includes WHERE portfolioID = $1', [portfolio.portfolioid]);
+                portfolio.stockLists = stockListsResult.rows;
+
+                let totalValue = parseFloat(portfolio.cashamount);
+
+                for (let stockList of portfolio.stockLists) {
+                    const stocksResult = await pool.query(
+                        `SELECT c.code, c.shares, s.close
+                         FROM Contains c
+                         JOIN Stocks s ON c.code = s.code
+                         WHERE c.listName = $1
+                         ORDER BY s.timestamp DESC
+                         LIMIT 1`,
+                        [stockList.listname]
+                    );
+
+                    for (let stock of stocksResult.rows) {
+                        totalValue += parseFloat(stock.close) * parseFloat(stock.shares);
+                    }
+                }
+
+                portfolio.currentValue = totalValue;
+            }
+
             res.render('dashboard', { user, portfolios });
         } catch (err) {
             console.error(err);
@@ -84,7 +104,6 @@ app.get('/dashboard', async (req, res) => {
         }
     }
 });
-
 
 // Route to render the add stock form
 app.get('/add_stock', async (req, res) => {
@@ -256,24 +275,35 @@ app.post('/send_friend_request', async (req, res) => {
             return;
         }
 
-        // Check if any request already exists
+        // Check if any request already exists and check for timePassed
         const existingRequest = await pool.query(
             'SELECT * FROM Requests WHERE (fromUserID = $1 AND toUserID = $2) OR (fromUserID = $2 AND toUserID = $1)',
             [req.session.userId, toUserID]
         );
 
         if (existingRequest.rows.length > 0) {
-            // If a request already exists, redirect back with an error message
-            req.session.error = 'Friend request already exists.';
-            res.redirect('/send_friend_request');
-        } else {
-            // If no existing request, insert the new friend request
-            await pool.query(
-                'INSERT INTO Requests (fromUserID, toUserID, status, timePassed) VALUES ($1, $2, $3, $4)',
-                [req.session.userId, toUserID, 'pending', 0]
-            );
-            res.redirect('/dashboard');
+            const timePassed = parseInt(existingRequest.rows[0].timepassed, 10);
+            const currentTime = Math.floor(Date.now() / 1000);
+            console.log(`Current time: ${currentTime}, timePassed: ${timePassed}, difference: ${currentTime - timePassed}`);
+
+            if (currentTime - timePassed < 300) { // 5 minutes = 300 seconds
+                req.session.error = 'You cannot send a friend request to this user again within 5 minutes.';
+                res.redirect('/send_friend_request');
+                return;
+            }
         }
+
+        // Insert or update the friend request
+        const currentTime = Math.floor(Date.now() / 1000);
+        await pool.query(
+            `INSERT INTO Requests (fromUserID, toUserID, status, timePassed) 
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (fromUserID, toUserID) DO UPDATE 
+             SET status = EXCLUDED.status, timePassed = EXCLUDED.timePassed`,
+            [req.session.userId, toUserID, 'pending', currentTime]
+        );
+
+        res.redirect('/dashboard');
     } catch (err) {
         console.error(err);
         res.status(500).send('Internal Server Error');
@@ -284,29 +314,46 @@ app.post('/send_friend_request', async (req, res) => {
 app.post('/reject_friend_request', async (req, res) => {
     const { fromUserID } = req.body;
     try {
-        await pool.query('DELETE FROM Requests WHERE fromUserID = $1 AND toUserID = $2 AND status = $3', [fromUserID, req.session.userId, 'pending']);
+        const currentTime = Math.floor(Date.now() / 1000);
+        await pool.query(
+            'UPDATE Requests SET status = $1, timePassed = $2 WHERE fromUserID = $3 AND toUserID = $4 AND status = $5',
+            ['rejected', currentTime, fromUserID, req.session.userId, 'pending']
+        );
         res.redirect('/view_friend_requests');
     } catch (err) {
         console.error(err);
         res.status(500).send('Internal Server Error');
     }
 });
+
 // Remove Friend
 app.post('/remove_friend', async (req, res) => {
     const { friendID } = req.body;
     try {
+        const currentTime = Math.floor(Date.now() / 1000);
+
         // Delete the friend relationship
-        await pool.query('DELETE FROM Friends WHERE (friend1 = $1 AND friend2 = $2) OR (friend1 = $2 AND friend2 = $1)', [req.session.userId, friendID]);
-        
-        // Delete any related friend requests
-        await pool.query('DELETE FROM Requests WHERE (fromUserID = $1 AND toUserID = $2) OR (fromUserID = $2 AND toUserID = $1)', [req.session.userId, friendID]);
-        
+        await pool.query(
+            'DELETE FROM Friends WHERE (friend1 = $1 AND friend2 = $2) OR (friend1 = $2 AND friend2 = $1)', 
+            [req.session.userId, friendID]
+        );
+
+        // Insert or update the related friend requests with the status 'removed' and set the timePassed
+        await pool.query(
+            `INSERT INTO Requests (fromUserID, toUserID, status, timePassed) 
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (fromUserID, toUserID) DO UPDATE 
+             SET status = EXCLUDED.status, timePassed = EXCLUDED.timePassed`,
+            [req.session.userId, friendID, 'removed', currentTime]
+        );
+
         res.redirect('/view_friends');
     } catch (err) {
         console.error(err);
         res.status(500).send('Internal Server Error');
     }
 });
+
 
 // View Friend Requests
 app.get('/view_friend_requests', async (req, res) => {
@@ -416,13 +463,26 @@ app.post('/create_stock_list', async (req, res) => {
     }
 });
 
-app.get('/add_stock_to_list', (req, res) => {
+app.get('/add_stock_to_list', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        const error = req.session.error || null;
-        delete req.session.error;
-        res.render('add_stock_to_list', { error });
+        try {
+            const stockListsResult = await pool.query(
+                `SELECT listName 
+                 FROM StockLists 
+                 WHERE userID = $1 
+                 AND listName NOT IN (SELECT listName FROM Includes)`,
+                [req.session.userId]
+            );
+
+            const error = req.session.error || null;
+            delete req.session.error;
+            res.render('add_stock_to_list', { error, stockLists: stockListsResult.rows });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
     }
 });
 
@@ -451,6 +511,7 @@ app.post('/add_stock_to_list', async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
+
 
 app.get('/change_visibility', (req, res) => {
     if (!req.session.userId) {

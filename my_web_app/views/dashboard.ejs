@@ -103,6 +103,33 @@
         a:hover {
             text-decoration: underline;
         }
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            margin: 4px 2px;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            text-align: center;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .btn:active {
+            background-color: #3e8e41;
+        }
+        .stock-list a {
+            display: inline-block;
+            padding: 5px 10px;
+            margin: 2px 0;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 3px;
+            text-decoration: none;
+        }
+        .stock-list a:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -115,6 +142,7 @@
 
     <div id="stockManagementContent" class="content">
         <a href="/add_stock">Add Stock</a>
+        <a href="/add_stock_to_list">Add Stock to Stock List</a>
         <a href="/view_stocks">View Stocks</a>
         <a href="/create_stock_list">Create Stock List</a>
         <a href="/change_visibility">Change Stock List Visibility</a>
@@ -157,6 +185,7 @@
                 <tr>
                     <th>Portfolio ID</th>
                     <th>Balance</th>
+                    <th>Current Value</th>
                     <th>Stock Lists</th>
                     <th>Actions</th>
                 </tr>
@@ -165,19 +194,20 @@
                 <% portfolios.forEach(portfolio => { %>
                     <tr>
                         <td><%= portfolio.portfolioid %></td>
-                        <td><%= portfolio.cashamount %></td>
+                        <td>$<%= portfolio.cashamount.toFixed(2) %></td>
+                        <td>$<%= portfolio.currentValue.toFixed(2) %></td>
                         <td>
-                            <ul>
+                            <ul class="stock-list">
                                 <% portfolio.stockLists.forEach(stockList => { %>
                                     <li><a href="/view_stock_list/<%= stockList.listname %>"><%= stockList.listname %></a></li>
                                 <% }) %>
                             </ul>
                         </td>
                         <td>
-                            <a href="/deposit/<%= portfolio.portfolioid %>">Deposit</a>
-                            <a href="/withdraw/<%= portfolio.portfolioid %>">Withdraw</a>
-                            <a href="/buy_stock/<%= portfolio.portfolioid %>">Buy Stock</a>
-                            <a href="/sell_stock/<%= portfolio.portfolioid %>">Sell Stock</a>
+                            <a class="btn" href="/deposit/<%= portfolio.portfolioid %>">Deposit</a>
+                            <a class="btn" href="/withdraw/<%= portfolio.portfolioid %>">Withdraw</a>
+                            <a class="btn" href="/buy_stock/<%= portfolio.portfolioid %>">Buy Stock</a>
+                            <a class="btn" href="/sell_stock/<%= portfolio.portfolioid %>">Sell Stock</a>
                         </td>
                     </tr>
                 <% }) %>
