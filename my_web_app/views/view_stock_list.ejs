@@ -36,8 +36,8 @@
                     <% 
                         const cvBeta = cvBetaData.find(cb => cb.code === stock.code);
                     %>
-                    <td><%= cvBeta ? cvBeta.coefficient_of_variation.toFixed(2) : 'N/A' %></td>
-                    <td><%= cvBeta ? cvBeta.beta.toFixed(2) : 'N/A' %></td>
+                    <td><%= cvBeta ? (cvBeta.coefficient_of_variation !== null ? cvBeta.coefficient_of_variation.toFixed(2) : 'N/A') : 'N/A' %></td>
+                    <td><%= cvBeta ? (cvBeta.beta !== null ? cvBeta.beta.toFixed(2) : 'N/A') : 'N/A' %></td>
                 </tr>
             <% }) %>
         </tbody>
@@ -59,7 +59,7 @@
                 <tr>
                     <td><%= data.code1 %></td>
                     <td><%= data.code2 %></td>
-                    <td><%= data.covariance.toFixed(2) %></td>
+                    <td><%= data.covariance !== null ? data.covariance.toFixed(2) : 'N/A' %></td>
                 </tr>
             <% }) %>
         </tbody>
@@ -79,7 +79,7 @@
                 <tr>
                     <td><%= data.code1 %></td>
                     <td><%= data.code2 %></td>
-                    <td><%= data.correlation.toFixed(2) %></td>
+                    <td><%= data.correlation !== null ? data.correlation.toFixed(2) : 'N/A' %></td>
                 </tr>
             <% }) %>
         </tbody>

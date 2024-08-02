@@ -494,7 +494,6 @@ app.get('/view_stock_list/:listName', async (req, res) => {
     } else {
         const listName = req.params.listName;
         try {
-            // Fetch stocks in the list
             const stockListResult = await pool.query(
                 `SELECT c.code, c.shares, s.timestamp, s.open, s.high, s.low, s.close, s.volume
                  FROM Contains c
@@ -503,74 +502,166 @@ app.get('/view_stock_list/:listName', async (req, res) => {
                 [listName]
             );
 
-            // if (stockListResult.rows.length === 0) {
-            //     res.render('view_stock_list', { stocks: [], listName });
-            // } else {
-            //     res.render('view_stock_list', { stocks: stocksResult.rows, listName });
-            // }
+            const currentTime = new Date();
 
-            // Fetch Coefficient of Variation and Beta
+            // Check cached values for Coefficient of Variation and Beta
             const cvBetaResult = await pool.query(
-                `WITH MarketStats AS (
-                    SELECT
-                        stddev_samp(close) / avg(close) AS market_cv,
-                        var_pop(close) AS market_var
-                    FROM
-                        Stocks
-                )
-                SELECT
-                    s.code,
-                    stddev_samp(s.close) / avg(s.close) AS coefficient_of_variation,
-                    (covar_pop(s.close, m.close) / ms.market_var) AS beta
-                FROM
-                    Stocks s
-                CROSS JOIN
-                    MarketStats ms
-                JOIN
-                    Stocks m ON s.timestamp = m.timestamp
-                WHERE
-                    s.code IN (SELECT code FROM Contains WHERE listName = $1)
-                GROUP BY
-                    s.code, ms.market_var`,
+                `SELECT code, coefficient_of_variation, beta
+                 FROM StockStatisticsCache
+                 WHERE last_updated > NOW() - INTERVAL '24 HOURS'
+                 AND code IN (SELECT code FROM Contains WHERE listName = $1)`,
                 [listName]
             );
+
+            const cachedCodes = cvBetaResult.rows.map(row => row.code);
+            const missingCodes = stockListResult.rows.map(row => row.code).filter(code => !cachedCodes.includes(code));
+
+            if (missingCodes.length > 0) {
+                const newCvBetaResult = await pool.query(
+                    `WITH MarketStats AS (
+                        SELECT
+                            stddev_samp(close) / avg(close) AS market_cv,
+                            var_pop(close) AS market_var
+                        FROM
+                            Stocks
+                    )
+                    SELECT
+                        s.code,
+                        stddev_samp(s.close) / avg(s.close) AS coefficient_of_variation,
+                        (covar_pop(s.close, m.close) / ms.market_var) AS beta
+                    FROM
+                        Stocks s
+                    CROSS JOIN
+                        MarketStats ms
+                    JOIN
+                        Stocks m ON s.timestamp = m.timestamp
+                    WHERE
+                        s.code = ANY($1)
+                    GROUP BY
+                        s.code, ms.market_var
+                    HAVING
+                        COUNT(s.close) > 1;`,
+                    [missingCodes]
+                );
+
+                const insertPromises = newCvBetaResult.rows.map(row => {
+                    return pool.query(
+                        `INSERT INTO StockStatisticsCache (code, coefficient_of_variation, beta, last_updated)
+                         VALUES ($1, $2, $3, $4)
+                         ON CONFLICT (code) DO UPDATE
+                         SET coefficient_of_variation = EXCLUDED.coefficient_of_variation,
+                             beta = EXCLUDED.beta,
+                             last_updated = EXCLUDED.last_updated`,
+                        [row.code, row.coefficient_of_variation, row.beta, currentTime]
+                    );
+                });
+
+                await Promise.all(insertPromises);
+                cvBetaResult.rows.push(...newCvBetaResult.rows);
+            }
 
             // Fetch Covariance
             const covarianceResult = await pool.query(
-                `SELECT
-                    s1.code AS code1,
-                    s2.code AS code2,
-                    covar_pop(s1.close, s2.close) AS covariance
-                 FROM
-                    Stocks s1
-                 JOIN
-                    Stocks s2 ON s1.timestamp = s2.timestamp
-                 WHERE
-                    s1.code IN (SELECT code FROM Contains WHERE listName = $1)
-                    AND s2.code IN (SELECT code FROM Contains WHERE listName = $1)
-                 GROUP BY
-                    s1.code, s2.code`,
+                `SELECT code1, code2, covariance
+                 FROM CovarianceCache
+                 WHERE last_updated > NOW() - INTERVAL '24 HOURS'
+                 AND code1 IN (SELECT code FROM Contains WHERE listName = $1)
+                 AND code2 IN (SELECT code FROM Contains WHERE listName = $1)`,
                 [listName]
             );
 
+            const missingCovPairs = stockListResult.rows.flatMap(row1 => {
+                return stockListResult.rows.map(row2 => {
+                    return { code1: row1.code, code2: row2.code };
+                }).filter(pair => !covarianceResult.rows.some(row => (row.code1 === pair.code1 && row.code2 === pair.code2) || (row.code1 === pair.code2 && row.code2 === pair.code1)));
+            });
+
+            if (missingCovPairs.length > 0) {
+                const newCovarianceResult = await pool.query(
+                    `SELECT
+                        s1.code AS code1,
+                        s2.code AS code2,
+                        covar_pop(s1.close, s2.close) AS covariance
+                     FROM
+                        Stocks s1
+                     JOIN
+                        Stocks s2 ON s1.timestamp = s2.timestamp
+                     WHERE
+                        s1.code IN (SELECT code FROM Contains WHERE listName = $1)
+                        AND s2.code IN (SELECT code FROM Contains WHERE listName = $1)
+                        AND s1.close IS NOT NULL
+                        AND s2.close IS NOT NULL
+                     GROUP BY
+                        s1.code, s2.code`,
+                    [listName]
+                );
+
+                const insertCovPromises = newCovarianceResult.rows.map(row => {
+                    return pool.query(
+                        `INSERT INTO CovarianceCache (code1, code2, covariance, last_updated)
+                         VALUES ($1, $2, $3, $4)
+                         ON CONFLICT (code1, code2) DO UPDATE
+                         SET covariance = EXCLUDED.covariance,
+                             last_updated = EXCLUDED.last_updated`,
+                        [row.code1, row.code2, row.covariance, currentTime]
+                    );
+                });
+
+                await Promise.all(insertCovPromises);
+                covarianceResult.rows.push(...newCovarianceResult.rows);
+            }
+
             // Fetch Correlation
             const correlationResult = await pool.query(
-                `SELECT
-                    s1.code AS code1,
-                    s2.code AS code2,
-                    corr(s1.close, s2.close) AS correlation
-                 FROM
-                    Stocks s1
-                 JOIN
-                    Stocks s2 ON s1.timestamp = s2.timestamp
-                 WHERE
-                    s1.code IN (SELECT code FROM Contains WHERE listName = $1)
-                    AND s2.code IN (SELECT code FROM Contains WHERE listName = $1)
-                 GROUP BY
-                    s1.code, s2.code`,
+                `SELECT code1, code2, correlation
+                 FROM CorrelationCache
+                 WHERE last_updated > NOW() - INTERVAL '24 HOURS'
+                 AND code1 IN (SELECT code FROM Contains WHERE listName = $1)
+                 AND code2 IN (SELECT code FROM Contains WHERE listName = $1)`,
                 [listName]
             );
-          
+
+            const missingCorrPairs = stockListResult.rows.flatMap(row1 => {
+                return stockListResult.rows.map(row2 => {
+                    return { code1: row1.code, code2: row2.code };
+                }).filter(pair => !correlationResult.rows.some(row => (row.code1 === pair.code1 && row.code2 === pair.code2) || (row.code1 === pair.code2 && row.code2 === pair.code1)));
+            });
+
+            if (missingCorrPairs.length > 0) {
+                const newCorrelationResult = await pool.query(
+                    `SELECT
+                        s1.code AS code1,
+                        s2.code AS code2,
+                        corr(s1.close, s2.close) AS correlation
+                     FROM
+                        Stocks s1
+                     JOIN
+                        Stocks s2 ON s1.timestamp = s2.timestamp
+                     WHERE
+                        s1.code IN (SELECT code FROM Contains WHERE listName = $1)
+                        AND s2.code IN (SELECT code FROM Contains WHERE listName = $1)
+                        AND s1.close IS NOT NULL
+                        AND s2.close IS NOT NULL
+                     GROUP BY
+                        s1.code, s2.code`,
+                    [listName]
+                );
+
+                const insertCorrPromises = newCorrelationResult.rows.map(row => {
+                    return pool.query(
+                        `INSERT INTO CorrelationCache (code1, code2, correlation, last_updated)
+                         VALUES ($1, $2, $3, $4)
+                         ON CONFLICT (code1, code2) DO UPDATE
+                         SET correlation = EXCLUDED.correlation,
+                             last_updated = EXCLUDED.last_updated`,
+                        [row.code1, row.code2, row.correlation, currentTime]
+                    );
+                });
+
+                await Promise.all(insertCorrPromises);
+                correlationResult.rows.push(...newCorrelationResult.rows);
+            }
+
             res.render('view_stock_list', {
                 stocks: stockListResult.rows,
                 listName,
