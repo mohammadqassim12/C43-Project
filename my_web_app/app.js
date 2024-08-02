@@ -487,30 +487,106 @@ app.get('/view_stock_lists', async (req, res) => {
     }
 });
 
+// View stock list and statistics
 app.get('/view_stock_list/:listName', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
         const listName = req.params.listName;
         try {
-            const stocksResult = await pool.query(
-                'SELECT c.code, c.shares, s.timestamp, s.open, s.high, s.low, s.close, s.volume ' +
-                'FROM Contains c JOIN Stocks s ON c.code = s.code AND c.timestamp = s.timestamp ' +
-                'WHERE c.listName = $1',
+            // Fetch stocks in the list
+            const stockListResult = await pool.query(
+                `SELECT c.code, c.shares, s.timestamp, s.open, s.high, s.low, s.close, s.volume
+                 FROM Contains c
+                 JOIN Stocks s ON c.code = s.code AND c.timestamp = s.timestamp
+                 WHERE c.listName = $1`,
                 [listName]
             );
 
-            if (stocksResult.rows.length === 0) {
-                res.render('view_stock_list', { stocks: [], listName });
-            } else {
-                res.render('view_stock_list', { stocks: stocksResult.rows, listName });
-            }
+            // if (stockListResult.rows.length === 0) {
+            //     res.render('view_stock_list', { stocks: [], listName });
+            // } else {
+            //     res.render('view_stock_list', { stocks: stocksResult.rows, listName });
+            // }
+
+            // Fetch Coefficient of Variation and Beta
+            const cvBetaResult = await pool.query(
+                `WITH MarketStats AS (
+                    SELECT
+                        stddev_samp(close) / avg(close) AS market_cv,
+                        var_pop(close) AS market_var
+                    FROM
+                        Stocks
+                )
+                SELECT
+                    s.code,
+                    stddev_samp(s.close) / avg(s.close) AS coefficient_of_variation,
+                    (covar_pop(s.close, m.close) / ms.market_var) AS beta
+                FROM
+                    Stocks s
+                CROSS JOIN
+                    MarketStats ms
+                JOIN
+                    Stocks m ON s.timestamp = m.timestamp
+                WHERE
+                    s.code IN (SELECT code FROM Contains WHERE listName = $1)
+                GROUP BY
+                    s.code, ms.market_var`,
+                [listName]
+            );
+
+            // Fetch Covariance
+            const covarianceResult = await pool.query(
+                `SELECT
+                    s1.code AS code1,
+                    s2.code AS code2,
+                    covar_pop(s1.close, s2.close) AS covariance
+                 FROM
+                    Stocks s1
+                 JOIN
+                    Stocks s2 ON s1.timestamp = s2.timestamp
+                 WHERE
+                    s1.code IN (SELECT code FROM Contains WHERE listName = $1)
+                    AND s2.code IN (SELECT code FROM Contains WHERE listName = $1)
+                 GROUP BY
+                    s1.code, s2.code`,
+                [listName]
+            );
+
+            // Fetch Correlation
+            const correlationResult = await pool.query(
+                `SELECT
+                    s1.code AS code1,
+                    s2.code AS code2,
+                    corr(s1.close, s2.close) AS correlation
+                 FROM
+                    Stocks s1
+                 JOIN
+                    Stocks s2 ON s1.timestamp = s2.timestamp
+                 WHERE
+                    s1.code IN (SELECT code FROM Contains WHERE listName = $1)
+                    AND s2.code IN (SELECT code FROM Contains WHERE listName = $1)
+                 GROUP BY
+                    s1.code, s2.code`,
+                [listName]
+            );
+
+            res.render('view_stock_list', {
+                stocks: stockListResult.rows,
+                listName,
+                cvBetaData: cvBetaResult.rows,
+                covarianceData: covarianceResult.rows,
+                correlationData: correlationResult.rows,
+                userId: req.session.userId
+            });
+
         } catch (err) {
             console.error(err);
             res.status(500).send('Internal Server Error');
         }
     }
 });
+
 
 app.get('/stock_price', async (req, res) => {
     const { code } = req.query;
@@ -526,6 +602,7 @@ app.get('/stock_price', async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal Server Error' });
     }
 });
+
 
 // Render the form for sharing a stock list
 app.get('/share_stock_list', (req, res) => {
@@ -642,12 +719,12 @@ app.get('/view_all_stock_lists', async (req, res) => {
         try {
             const result = await pool.query(
                 `SELECT * FROM StockLists 
-                 WHERE visibility = 'public' 
-                 OR userID = $1 
-                 OR listName IN (SELECT listName FROM Share WHERE userID = $1)`,
+                 WHERE userID = $1 
+                    OR visibility = 'public' 
+                    OR listName IN (SELECT listName FROM Share WHERE userID = $1)`,
                 [req.session.userId]
             );
-            res.render('view_all_stock_lists', { stockLists: result.rows });
+            res.render('view_all_stock_lists', { stockLists: result.rows, userId: req.session.userId });
         } catch (err) {
             console.error(err);
             res.status(500).send('Internal Server Error');
