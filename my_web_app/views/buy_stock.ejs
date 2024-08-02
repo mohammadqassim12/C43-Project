@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buy Stock</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script>
+        async function updateStockPrice() {
+            const stockCode = document.getElementById('code').value;
+            const shares = document.getElementById('shares').value || 1;
+
+            const response = await fetch(`/stock_price?code=${stockCode}`);
+            const data = await response.json();
+
+            if (data.success) {
+                const stockPrice = data.price;
+                const totalCost = stockPrice * shares;
+
+                document.getElementById('stockPrice').innerText = `Latest Stock Price: $${stockPrice}`;
+                document.getElementById('totalCost').innerText = `Total Cost: $${totalCost}`;
+            } else {
+                document.getElementById('stockPrice').innerText = `Stock Price not available`;
+                document.getElementById('totalCost').innerText = `Total Cost: N/A`;
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Buy Stock for Portfolio ID: <%= portfolioID %></h1>
+    <p>Current Balance: $<%= cashAmount %></p>
+    <% if (success) { %>
+        <p style="color: green;"><%= success %></p>
+    <% } %>
+    <% if (error) { %>
+        <p style="color: red;"><%= error %></p>
+    <% } %>
+    <form method="post" action="/buy_stock">
+        <input type="hidden" name="portfolioID" value="<%= portfolioID %>">
+        <label for="code">Stock Code:</label>
+        <select name="code" id="code" onchange="updateStockPrice()" required>
+            <% stockCodes.forEach(code => { %>
+                <option value="<%= code %>"><%= code %></option>
+            <% }) %>
+        </select>
+        <label for="shares">Shares:</label>
+        <input type="number" name="shares" id="shares" min="1" onchange="updateStockPrice()" required>
+        <button type="submit">Buy</button>
+    </form>
+    <p id="stockPrice">Latest Stock Price: $<%= stockPrice %> </p>
+    <p id="totalCost">Total Cost: $<%= totalCost %> </p>
+    <a href="/view_portfolios">Back to Portfolios</a>
+</body>
+</html>

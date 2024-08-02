@@ -60,28 +60,64 @@ app.get('/logout', (req, res) => {
     res.redirect('/');
 });
 
-app.get('/dashboard', (req, res) => {
+app.get('/dashboard', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        res.render('dashboard', { name: req.session.userName });
+        try {
+            const userResult = await pool.query('SELECT * FROM Users WHERE userID = $1', [req.session.userId]);
+            const portfolioResult = await pool.query('SELECT * FROM Portfolios WHERE userID = $1', [req.session.userId]);
+
+            const portfolios = await Promise.all(portfolioResult.rows.map(async (portfolio) => {
+                const stockListResult = await pool.query('SELECT listName FROM Includes WHERE portfolioID = $1', [portfolio.portfolioid]);
+                return {
+                    ...portfolio,
+                    stockLists: stockListResult.rows
+                };
+            }));
+
+            const user = userResult.rows[0];
+            res.render('dashboard', { user, portfolios });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
     }
 });
 
-app.get('/add_stock', (req, res) => {
+
+// Route to render the add stock form
+app.get('/add_stock', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        res.render('add_stock');
+        try {
+            const stockCodesResult = await pool.query('SELECT DISTINCT code FROM Stocks');
+            const stockCodes = stockCodesResult.rows.map(row => row.code);
+            res.render('add_stock', { stockCodes });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
     }
 });
 
+// Handle form submission for adding stock
 app.post('/add_stock', async (req, res) => {
-    const { code, timestamp, open, high, low, close, volume } = req.body;
-    await pool.query('INSERT INTO Stocks (code, timestamp, open, high, low, close, volume) VALUES ($1, $2, $3, $4, $5, $6, $7)', 
-                    [code, timestamp, open, high, low, close, volume]);
-    res.redirect('/dashboard');
+    const { code, newCode, timestamp, open, high, low, close, volume } = req.body;
+    const stockCode = (code === 'new') ? newCode : code;
+    try {
+        await pool.query(
+            'INSERT INTO Stocks (code, timestamp, open, high, low, close, volume) VALUES ($1, $2, $3, $4, $5, $6, $7)', 
+            [stockCode, timestamp, open, high, low, close, volume]
+        );
+        res.redirect('/dashboard');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
 });
+
 
 app.get('/view_stocks', async (req, res) => {
     if (!req.session.userId) {
@@ -127,8 +163,25 @@ app.get('/create_portfolio', (req, res) => {
 
 app.post('/create_portfolio', async (req, res) => {
     const { cashAmount } = req.body;
-    await pool.query('INSERT INTO Portfolios (userID, cashAmount) VALUES ($1, $2)', [req.session.userId, cashAmount]);
-    res.redirect('/dashboard');
+    try {
+        // Insert the new portfolio and get its ID
+        const result = await pool.query('INSERT INTO Portfolios (userID, cashAmount) VALUES ($1, $2) RETURNING portfolioID', [req.session.userId, cashAmount]);
+        const portfolioID = result.rows[0].portfolioid;
+
+        // Create a unique stock list name
+        const listName = `Portfolio_${portfolioID}_StockList`;
+
+        // Insert a new private stock list associated with the portfolio
+        await pool.query('INSERT INTO StockLists (listName, userID, visibility) VALUES ($1, $2, $3)', [listName, req.session.userId, 'private']);
+
+        // Associate the stock list with the portfolio
+        await pool.query('INSERT INTO Includes (portfolioID, listName) VALUES ($1, $2)', [portfolioID, listName]);
+
+        res.redirect('/dashboard');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
 });
 
 // View Portfolios
@@ -136,8 +189,24 @@ app.get('/view_portfolios', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        const result = await pool.query('SELECT * FROM Portfolios WHERE userID = $1', [req.session.userId]);
-        res.render('view_portfolios', { portfolios: result.rows });
+        try {
+            const portfoliosResult = await pool.query('SELECT * FROM Portfolios WHERE userID = $1', [req.session.userId]);
+            const portfolios = portfoliosResult.rows;
+
+            // Fetch associated stock lists for each portfolio
+            for (const portfolio of portfolios) {
+                const stockListsResult = await pool.query(
+                    'SELECT sl.listName FROM Includes i JOIN StockLists sl ON i.listName = sl.listName WHERE i.portfolioID = $1',
+                    [portfolio.portfolioid]
+                );
+                portfolio.stockLists = stockListsResult.rows;
+            }
+
+            res.render('view_portfolios', { portfolios });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
     }
 });
 
@@ -434,6 +503,12 @@ app.get('/view_stock_list/:listName', async (req, res) => {
                 [listName]
             );
 
+            // if (stockListResult.rows.length === 0) {
+            //     res.render('view_stock_list', { stocks: [], listName });
+            // } else {
+            //     res.render('view_stock_list', { stocks: stocksResult.rows, listName });
+            // }
+
             // Fetch Coefficient of Variation and Beta
             const cvBetaResult = await pool.query(
                 `WITH MarketStats AS (
@@ -504,6 +579,7 @@ app.get('/view_stock_list/:listName', async (req, res) => {
                 correlationData: correlationResult.rows,
                 userId: req.session.userId
             });
+
         } catch (err) {
             console.error(err);
             res.status(500).send('Internal Server Error');
@@ -511,6 +587,21 @@ app.get('/view_stock_list/:listName', async (req, res) => {
     }
 });
 
+
+app.get('/stock_price', async (req, res) => {
+    const { code } = req.query;
+    try {
+        const result = await pool.query('SELECT close FROM Stocks WHERE code = $1 ORDER BY timestamp DESC LIMIT 1', [code]);
+        if (result.rows.length > 0) {
+            res.json({ success: true, price: result.rows[0].close });
+        } else {
+            res.json({ success: false, message: 'Stock price not found.' });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
+});
 
 
 // Render the form for sharing a stock list
@@ -733,6 +824,254 @@ app.post('/delete_review', async (req, res) => {
     }
 });
 
+app.get('/deposit/:portfolioID', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const { portfolioID } = req.params;
+        res.render('deposit', { portfolioID, error: req.session.error || null });
+        req.session.error = null;
+    }
+});
+
+// Handle form submission for depositing cash
+app.post('/deposit', async (req, res) => {
+    const { portfolioID, amount } = req.body;
+    try {
+        await pool.query('UPDATE Portfolios SET cashAmount = cashAmount + $1 WHERE portfolioID = $2 AND userID = $3', 
+                         [amount, portfolioID, req.session.userId]);
+        res.redirect('/view_portfolios');
+    } catch (err) {
+        console.error(err);
+        req.session.error = 'Deposit failed.';
+        res.redirect(`/deposit/${portfolioID}`);
+    }
+});
+
+// Route to render the withdraw form
+app.get('/withdraw/:portfolioID', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const { portfolioID } = req.params;
+        res.render('withdraw', { portfolioID, error: req.session.error || null });
+        req.session.error = null;
+    }
+});
+
+// Handle form submission for withdrawing cash
+app.post('/withdraw', async (req, res) => {
+    const { portfolioID, amount } = req.body;
+    try {
+        const result = await pool.query('SELECT cashAmount FROM Portfolios WHERE portfolioID = $1 AND userID = $2', 
+                                        [portfolioID, req.session.userId]);
+        const cashAmount = result.rows[0].cashamount;
+
+        if (cashAmount < amount) {
+            req.session.error = 'Insufficient funds.';
+            res.redirect(`/withdraw/${portfolioID}`);
+        } else {
+            await pool.query('UPDATE Portfolios SET cashAmount = cashAmount - $1 WHERE portfolioID = $2 AND userID = $3', 
+                             [amount, portfolioID, req.session.userId]);
+            res.redirect('/view_portfolios');
+        }
+    } catch (err) {
+        console.error(err);
+        req.session.error = 'Withdrawal failed.';
+        res.redirect(`/withdraw/${portfolioID}`);
+    }
+});
+
+// Render the form for buying stock
+app.get('/buy_stock/:portfolioID', async (req, res) => {
+    const { portfolioID } = req.params;
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        try {
+            const portfolioResult = await pool.query('SELECT * FROM Portfolios WHERE portfolioID = $1 AND userID = $2', [portfolioID, req.session.userId]);
+            const stockCodesResult = await pool.query('SELECT DISTINCT code FROM Stocks');
+
+            if (portfolioResult.rows.length === 0) {
+                res.status(404).send('Portfolio not found');
+                return;
+            }
+
+            const portfolio = portfolioResult.rows[0];
+            const stockCodes = stockCodesResult.rows.map(row => row.code);
+
+            res.render('buy_stock', { 
+                portfolioID, 
+                cashAmount: portfolio.cashamount, 
+                stockCodes, 
+                error: req.session.error || null,
+                success: req.session.success || null,
+                stockPrice: null, // Initial rendering doesn't have stock price
+                totalCost: null  // Initial rendering doesn't have total cost
+            });
+            req.session.error = null; // Clear the error after displaying
+            req.session.success = null; // Clear the success message after displaying
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
+    }
+});
+
+app.post('/buy_stock', async (req, res) => {
+    const { portfolioID, code, shares } = req.body;
+    try {
+        // Fetch the latest stock price for the given stock code
+        const stockResult = await pool.query(
+            'SELECT * FROM Stocks WHERE code = $1 ORDER BY timestamp DESC LIMIT 1',
+            [code]
+        );
+
+        if (stockResult.rows.length === 0) {
+            req.session.error = 'Stock code not found.';
+            return res.redirect(`/buy_stock/${portfolioID}`);
+        }
+
+        const stock = stockResult.rows[0];
+        const cost = stock.close * shares;
+
+        // Update the portfolio's cash amount
+        const portfolioResult = await pool.query('SELECT * FROM Portfolios WHERE portfolioID = $1', [portfolioID]);
+        const portfolio = portfolioResult.rows[0];
+
+        if (portfolio.cashamount < cost) {
+            req.session.error = 'Insufficient funds to buy the stock.';
+            return res.redirect(`/buy_stock/${portfolioID}`);
+        }
+
+        await pool.query(
+            'UPDATE Portfolios SET cashAmount = cashAmount - $1 WHERE portfolioID = $2',
+            [cost, portfolioID]
+        );
+
+        // Check if a stock list for this portfolio already exists
+        const stockListResult = await pool.query('SELECT * FROM Includes WHERE portfolioID = $1', [portfolioID]);
+        let listName;
+
+        if (stockListResult.rows.length === 0) {
+            // Create a new stock list if none exists
+            listName = `Portfolio_${portfolioID}_StockList`;
+            await pool.query('INSERT INTO StockLists (listName, userID, visibility) VALUES ($1, $2, $3)', [listName, portfolio.userid, 'private']);
+            await pool.query('INSERT INTO Includes (portfolioID, listName) VALUES ($1, $2)', [portfolioID, listName]);
+        } else {
+            listName = stockListResult.rows[0].listname;
+        }
+
+        // Insert or update the Contains table with the new stock holding
+        await pool.query(
+            'INSERT INTO Contains (code, listName, timestamp, shares) VALUES ($1, $2, $3, $4) ' +
+            'ON CONFLICT (code, listName, timestamp) DO UPDATE SET shares = Contains.shares + EXCLUDED.shares',
+            [code, listName, stock.timestamp, shares]
+        );
+
+        req.session.success = 'Stock bought successfully!';
+        res.redirect(`/buy_stock/${portfolioID}`);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+
+// Route to render the sell stock form
+app.get('/sell_stock/:portfolioID', async (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        const { portfolioID } = req.params;
+        try {
+            const stocksResult = await pool.query(
+                'SELECT c.code, c.shares FROM Contains c ' +
+                'JOIN Includes i ON c.listName = i.listName ' +
+                'WHERE i.portfolioID = $1 AND i.portfolioID IN (SELECT portfolioID FROM Portfolios WHERE userID = $2)',
+                [portfolioID, req.session.userId]
+            );
+            const stockCodes = stocksResult.rows;
+
+            const cashResult = await pool.query('SELECT cashAmount FROM Portfolios WHERE portfolioID = $1 AND userID = $2', [portfolioID, req.session.userId]);
+            const cashAmount = cashResult.rows[0].cashamount;
+
+            res.render('sell_stock', { 
+                portfolioID, 
+                stockCodes, 
+                cashAmount, 
+                stockPrice: null, 
+                totalSale: null, 
+                error: req.session.error || null, 
+                success: req.session.success || null 
+            });
+            req.session.error = null;
+            req.session.success = null;
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
+    }
+});
+
+// Handle form submission for selling stock
+app.post('/sell_stock', async (req, res) => {
+    const { portfolioID, code, shares } = req.body;
+    try {
+        // Fetch the latest stock price for the given stock code
+        const stockResult = await pool.query(
+            'SELECT * FROM Stocks WHERE code = $1 ORDER BY timestamp DESC LIMIT 1',
+            [code]
+        );
+
+        if (stockResult.rows.length === 0) {
+            req.session.error = 'Stock code not found.';
+            return res.redirect(`/sell_stock/${portfolioID}`);
+        }
+
+        const stock = stockResult.rows[0];
+        const revenue = stock.close * shares;
+
+        // Check if the user owns enough shares to sell
+        const holdingsResult = await pool.query(
+            'SELECT c.shares, c.listName FROM Contains c ' +
+            'JOIN Includes i ON c.listName = i.listName ' +
+            'WHERE i.portfolioID = $1 AND c.code = $2',
+            [portfolioID, code]
+        );
+
+        if (holdingsResult.rows.length === 0 || holdingsResult.rows[0].shares < shares) {
+            req.session.error = 'Insufficient shares to sell.';
+            return res.redirect(`/sell_stock/${portfolioID}`);
+        }
+
+        const listName = holdingsResult.rows[0].listname;
+
+        // Update the portfolio's cash amount
+        await pool.query(
+            'UPDATE Portfolios SET cashAmount = cashAmount + $1 WHERE portfolioID = $2',
+            [revenue, portfolioID]
+        );
+
+        // Update the Contains table with the new stock holding
+        await pool.query(
+            'UPDATE Contains SET shares = shares - $1 WHERE code = $2 AND listName = $3',
+            [shares, code, listName]
+        );
+
+        // Remove the stock holding if shares become zero or less
+        await pool.query(
+            'DELETE FROM Contains WHERE code = $1 AND listName = $2 AND shares <= 0',
+            [code, listName]
+        );
+
+        req.session.success = 'Stock sold successfully!';
+        res.redirect(`/sell_stock/${portfolioID}`);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
