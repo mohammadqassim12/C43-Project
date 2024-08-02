@@ -463,22 +463,20 @@ app.post('/create_stock_list', async (req, res) => {
     }
 });
 
-app.get('/add_stock_to_list', async (req, res) => {
+// Add Stock to Stock List
+app.get('/add_stock_to_list/:listName', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
+        const listName = req.params.listName;
         try {
-            const stockListsResult = await pool.query(
-                `SELECT listName 
-                 FROM StockLists 
-                 WHERE userID = $1 
-                 AND listName NOT IN (SELECT listName FROM Includes)`,
-                [req.session.userId]
+            const availableStocks = await pool.query(
+                `SELECT DISTINCT code FROM Stocks`
             );
 
             const error = req.session.error || null;
             delete req.session.error;
-            res.render('add_stock_to_list', { error, stockLists: stockListsResult.rows });
+            res.render('add_stock_to_list', { error, listName, availableStocks: availableStocks.rows });
         } catch (err) {
             console.error(err);
             res.status(500).send('Internal Server Error');
@@ -486,8 +484,9 @@ app.get('/add_stock_to_list', async (req, res) => {
     }
 });
 
-app.post('/add_stock_to_list', async (req, res) => {
-    const { code, listName, shares } = req.body;
+app.post('/add_stock_to_list/:listName', async (req, res) => {
+    const { code, shares } = req.body;
+    const listName = req.params.listName;
     try {
         const latestStock = await pool.query(
             'SELECT timestamp FROM Stocks WHERE code = $1 ORDER BY timestamp DESC LIMIT 1',
@@ -496,7 +495,7 @@ app.post('/add_stock_to_list', async (req, res) => {
 
         if (latestStock.rows.length === 0) {
             req.session.error = 'Stock code not found.';
-            return res.redirect('/add_stock_to_list');
+            return res.redirect(`/add_stock_to_list/${listName}`);
         }
 
         const timestamp = latestStock.rows[0].timestamp;
@@ -505,7 +504,8 @@ app.post('/add_stock_to_list', async (req, res) => {
             'INSERT INTO Contains (code, timestamp, listName, shares) VALUES ($1, $2, $3, $4)',
             [code, timestamp, listName, shares]
         );
-        res.redirect('/dashboard');
+        req.session.successMessage = 'Stock added to list successfully';
+        res.redirect(`/view_stock_list/${listName}`);
     } catch (err) {
         console.error(err);
         res.status(500).send('Internal Server Error');
@@ -513,13 +513,13 @@ app.post('/add_stock_to_list', async (req, res) => {
 });
 
 
-app.get('/change_visibility', (req, res) => {
+app.get('/change_visibility/:listName', (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        const error = req.session.error || null;
-        delete req.session.error;
-        res.render('change_visibility', { error });
+        const { listName } = req.params;
+        res.render('change_visibility', { listName, error: req.session.error || null });
+        req.session.error = null;
     }
 });
 
@@ -527,20 +527,26 @@ app.post('/change_visibility', async (req, res) => {
     const { listName, visibility } = req.body;
     try {
         await pool.query('UPDATE StockLists SET visibility = $1 WHERE listName = $2 AND userID = $3', [visibility, listName, req.session.userId]);
-        res.redirect('/dashboard');
+        req.session.successMessage = 'Visibility updated successfully!';
+        res.redirect('/view_stock_lists');
     } catch (err) {
         console.error(err);
         res.status(500).send('Internal Server Error');
     }
-});
+});;
 
 app.get('/view_stock_lists', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
         try {
-            const result = await pool.query('SELECT * FROM StockLists WHERE userID = $1', [req.session.userId]);
-            res.render('view_stock_lists', { stockLists: result.rows });
+            const stockListsResult = await pool.query(
+                'SELECT listName, visibility FROM StockLists WHERE userID = $1',
+                [req.session.userId]
+            );
+            const successMessage = req.session.successMessage || null;
+            req.session.successMessage = null;
+            res.render('view_stock_lists', { stockLists: stockListsResult.rows, successMessage });
         } catch (err) {
             console.error(err);
             res.status(500).send('Internal Server Error');
@@ -755,33 +761,62 @@ app.get('/stock_price', async (req, res) => {
 });
 
 
-// Render the form for sharing a stock list
-app.get('/share_stock_list', (req, res) => {
+app.get('/share_stock_list', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        res.render('share_stock_list', { error: req.session.error || null });
-        req.session.error = null; // Clear the error after displaying
+        try {
+            const stockListsResult = await pool.query(
+                'SELECT listName FROM StockLists WHERE userID = $1 AND visibility = $2',
+                [req.session.userId, 'private']
+            );
+            const error = req.session.error || null;
+            const success = req.session.success || null;
+            delete req.session.error;
+            delete req.session.success;
+            res.render('share_stock_list', { stockLists: stockListsResult.rows, error, success });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('Internal Server Error');
+        }
     }
 });
 
-// Handle form submission for sharing a stock list
 app.post('/share_stock_list', async (req, res) => {
     const { listName, userID } = req.body;
+
+    if (req.session.userId == userID) {
+        req.session.error = 'You cannot share the stock list with yourself.';
+        return res.redirect('/share_stock_list');
+    }
+
     try {
-        // Check if the stock list is public
-        const stockListResult = await pool.query(
-            'SELECT * FROM StockLists WHERE listName = $1 AND visibility = $2',
-            [listName, 'public']
+        const userExists = await pool.query(
+            'SELECT * FROM Users WHERE userID = $1',
+            [userID]
         );
 
-        if (stockListResult.rows.length === 0) {
-            req.session.error = 'Only public stock lists can be shared.';
-            res.redirect('/share_stock_list');
-        } else {
-            await pool.query('INSERT INTO Share (userID, listName) VALUES ($1, $2)', [userID, listName]);
-            res.redirect('/dashboard');
+        if (userExists.rows.length === 0) {
+            req.session.error = 'User does not exist.';
+            return res.redirect('/share_stock_list');
         }
+
+        const alreadyShared = await pool.query(
+            'SELECT * FROM Share WHERE userID = $1 AND listName = $2',
+            [userID, listName]
+        );
+
+        if (alreadyShared.rows.length > 0) {
+            req.session.error = 'You have already shared this stock list with this user.';
+            return res.redirect('/share_stock_list');
+        }
+
+        await pool.query(
+            'INSERT INTO Share (userID, listName) VALUES ($1, $2)',
+            [userID, listName]
+        );
+        req.session.success = `Stock list "${listName}" shared with user ID ${userID} successfully.`;
+        res.redirect('/share_stock_list');
     } catch (err) {
         console.error(err);
         res.status(500).send('Internal Server Error');
