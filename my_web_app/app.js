@@ -3,6 +3,8 @@ const bodyParser = require('body-parser');
 const { Pool } = require('pg');
 const path = require('path');
 const session = require('express-session');
+const { JSDOM } = require('jsdom');
+const { Chart } = require('chart.js');
 
 const app = express();
 const pool = new Pool({
@@ -1162,6 +1164,63 @@ app.post('/sell_stock', async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
+
+
+// View historical performance of a stock
+app.get('/historical_performance/:stockCode', async (req, res) => {
+    const stockCode = req.params.stockCode;
+    const interval = req.query.interval || '5y'; // Default to 5 years if not specified
+    let startDate;
+
+    // Calculate start date based on the selected interval
+    const endDate = '2018-02-08'; // Last date in the dataset
+    switch (interval) {
+        case '1w':
+            startDate = '2018-02-01'; // 1 week before endDate
+            break;
+        case '1m':
+            startDate = '2018-01-08'; // 1 month before endDate
+            break;
+        case '3m':
+            startDate = '2017-11-08'; // 3 months before endDate
+            break;
+        case '1y':
+            startDate = '2017-02-08'; // 1 year before endDate
+            break;
+        case '5y':
+        default:
+            startDate = '2013-02-08'; // 5 years before endDate
+            break;
+    }
+
+    try {
+        const result = await pool.query(
+            `SELECT timestamp, close 
+             FROM Stocks 
+             WHERE code = $1 AND timestamp >= $2 
+             ORDER BY timestamp ASC`,
+            [stockCode, startDate]
+        );
+
+        // Ensure data is sanitized and formatted correctly
+        const allData = result.rows.map((row, index) => ({
+            index: index + 1, // Add index starting from 1
+            close: row.close
+        }));
+
+        res.render('historical_performance', {
+            stockCode,
+            interval,
+            allData
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

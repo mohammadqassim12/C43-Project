@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical Performance: <%= stockCode %></title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Historical Performance: <%= stockCode %></h1>
+    <form method="GET" action="/historical_performance/<%= stockCode %>">
+        <label for="interval">Select Interval:</label>
+        <select name="interval" id="interval" onchange="this.form.submit()">
+            <option value="1w" <%= interval === '1w' ? 'selected' : '' %>>1 Week</option>
+            <option value="1m" <%= interval === '1m' ? 'selected' : '' %>>1 Month</option>
+            <option value="3m" <%= interval === '3m' ? 'selected' : '' %>>3 Months</option>
+            <option value="1y" <%= interval === '1y' ? 'selected' : '' %>>1 Year</option>
+            <option value="5y" <%= interval === '5y' ? 'selected' : '' %>>5 Years</option>
+        </select>
+    </form>
+
+    <canvas id="historicalChart" width="400" height="200"></canvas>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const ctx = document.getElementById('historicalChart').getContext('2d');
+
+            // Extract indices and data points (close prices)
+            const indices = <%= JSON.stringify(allData.map(data => data.index)) %>;
+            const dataPoints = <%= JSON.stringify(allData.map(data => data.close)) %>;
+
+            // Create the chart with all data points
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: indices,
+                    datasets: [{
+                        label: 'Close Price',
+                        data: dataPoints,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Days'
+                            },
+                            type: 'linear'
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Close Price'
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+
+    <a href="/view_all_stock_lists">Back to Stock Lists</a>
+</body>
+</html>
