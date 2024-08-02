@@ -18,11 +18,11 @@
         <tbody>
             <% stockLists.forEach(stockList => { %>
                 <tr>
-                    <td><%= stockList.listname %></td>
+                    <td><a href="/view_stock_list/<%= stockList.listname %>"><%= stockList.listname %></a></td>
                     <td><%= stockList.visibility %></td>
                     <td>
                         <a href="/view_reviews/<%= stockList.listname %>">View Reviews</a>
-                        <% if (stockList.userid !== locals.userId) { %>
+                        <% if (stockList.userid !== userId) { %>
                             <a href="/add_review/<%= stockList.listname %>">Add Review</a>
                         <% } %>
                     </td>
