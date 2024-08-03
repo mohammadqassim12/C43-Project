@@ -12,6 +12,11 @@
             color: #333;
             margin: 0;
             padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
         }
         h1 {
             color: #4CAF50;
@@ -34,9 +39,7 @@
             border: 1px solid #ddd;
         }
         canvas {
-            display: block;
-            margin: 0 auto;
-            width: 95% !important;
+            width: 100% !important;
             height: 75% !important;
         }
         a {
@@ -80,7 +83,8 @@
     <canvas id="historicalChart"></canvas>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const ctx = document.getElementById('historicalChart').getContext('2d');
+            const canvas = document.getElementById('historicalChart');
+            const ctx = canvas.getContext('2d');
 
             const pastDataIndices = <%= JSON.stringify(pastData.map(data => data.index)) %>;
             const pastDataPoints = <%= JSON.stringify(pastData.map(data => data.close)) %>;
@@ -88,26 +92,34 @@
             const futureDataIndices = <%= JSON.stringify(futureData.map(data => data.index)) %>;
             const futureDataPoints = <%= JSON.stringify(futureData.map(data => data.close)) %>;
 
+            const allDataIndices = pastDataIndices.concat(futureDataIndices);
+            const allDataPoints = pastDataPoints.concat(Array(futureDataPoints.length).fill(null));
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, 'rgba(76, 175, 80, 0.2)');
+            gradient.addColorStop(0.5, 'rgba(76, 175, 80, 0.2)');
+            gradient.addColorStop(1, 'rgba(76, 175, 80, 0.2)');
+
             new Chart(ctx, {
-                animation: {
-                    duration: 0 
-                },                 
                 type: 'line',
                 data: {
-                    labels: pastDataIndices.concat(futureDataIndices),
+                    labels: allDataIndices,
                     datasets: [{
                         label: 'Close Price',
-                        data: pastDataPoints.concat(Array(futureDataPoints.length).fill(null)),
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 1,
-                        fill: false
+                        data: allDataPoints,
+                        borderColor: 'rgba(76, 175, 80, 1)',
+                        borderWidth: 2,
+                        fill: true,
+                        backgroundColor: gradient,
+                        pointRadius: 0
                     }, {
-                        label: 'Future Prediction',
+                        label: 'Future Close Price',
                         data: Array(pastDataPoints.length).fill(null).concat(futureDataPoints),
-                        borderColor: 'rgba(192, 192, 192, 1)',
-                        borderWidth: 1,
+                        borderColor: 'rgba(128, 128, 128, 1)',
+                        borderWidth: 2,
                         borderDash: [5, 5],
-                        fill: false
+                        fill: false,
+                        pointRadius: 0
                     }]
                 },
                 options: {
@@ -115,17 +127,41 @@
                         x: {
                             title: {
                                 display: true,
-                                text: 'Days'
+                                text: 'Days',
+                                color: '#333',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                color: '#666'
                             }
                         },
                         y: {
                             title: {
                                 display: true,
-                                text: 'Close Price'
+                                text: 'Close Price',
+                                color: '#333',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                color: '#666'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: '#333'
                             }
                         }
                     }
-                }               
+                }
             });
         });
     </script>
