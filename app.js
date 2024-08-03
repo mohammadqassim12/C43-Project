@@ -122,7 +122,6 @@ app.get('/add_stock', async (req, res) => {
     }
 });
 
-// Handle form submission for adding stock
 app.post('/add_stock', async (req, res) => {
     const { code, newCode, timestamp, open, high, low, close, volume } = req.body;
     const stockCode = (code === 'new') ? newCode : code;
@@ -172,7 +171,6 @@ app.get('/search_stocks', async (req, res) => {
     }
 });
 
-// Create Portfolio
 app.get('/create_portfolio', (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -184,17 +182,13 @@ app.get('/create_portfolio', (req, res) => {
 app.post('/create_portfolio', async (req, res) => {
     const { cashAmount } = req.body;
     try {
-        // Insert the new portfolio and get its ID
         const result = await pool.query('INSERT INTO Portfolios (userID, cashAmount) VALUES ($1, $2) RETURNING portfolioID', [req.session.userId, cashAmount]);
         const portfolioID = result.rows[0].portfolioid;
 
-        // Create a unique stock list name
         const listName = `Portfolio_${portfolioID}_StockList`;
 
-        // Insert a new private stock list associated with the portfolio
         await pool.query('INSERT INTO StockLists (listName, userID, visibility) VALUES ($1, $2, $3)', [listName, req.session.userId, 'private']);
 
-        // Associate the stock list with the portfolio
         await pool.query('INSERT INTO Includes (portfolioID, listName) VALUES ($1, $2)', [portfolioID, listName]);
 
         res.redirect('/dashboard');
@@ -204,7 +198,6 @@ app.post('/create_portfolio', async (req, res) => {
     }
 });
 
-// View Portfolios
 app.get('/view_portfolios', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -213,7 +206,6 @@ app.get('/view_portfolios', async (req, res) => {
             const portfoliosResult = await pool.query('SELECT * FROM Portfolios WHERE userID = $1', [req.session.userId]);
             const portfolios = portfoliosResult.rows;
 
-            // Fetch associated stock lists for each portfolio
             for (const portfolio of portfolios) {
                 const stockListsResult = await pool.query(
                     'SELECT sl.listName FROM Includes i JOIN StockLists sl ON i.listName = sl.listName WHERE i.portfolioID = $1',
@@ -230,53 +222,46 @@ app.get('/view_portfolios', async (req, res) => {
     }
 });
 
-// Send Friend Request
 app.get('/send_friend_request', (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
         res.render('send_friend_request', { error: req.session.error });
-        req.session.error = null;  // Clear the error after displaying
+        req.session.error = null;
     }
 });
 
 app.post('/send_friend_request', async (req, res) => {
     const { toUserID } = req.body;
 
-    // Prevent users from sending a friend request to themselves
     if (req.session.userId == toUserID) {
         req.session.error = 'You cannot send a friend request to yourself.';
         return res.redirect('/send_friend_request');
     }
 
     try {
-        // Check if the toUserID exists
         const userExists = await pool.query(
             'SELECT * FROM Users WHERE userID = $1',
             [toUserID]
         );
 
         if (userExists.rows.length === 0) {
-            // If the user doesn't exist, redirect back with an error message
             req.session.error = 'User does not exist.';
             res.redirect('/send_friend_request');
             return;
         }
 
-        // Check if the users are already friends
         const friendsExist = await pool.query(
             'SELECT * FROM Friends WHERE (friend1 = $1 AND friend2 = $2) OR (friend1 = $2 AND friend2 = $1)',
             [req.session.userId, toUserID]
         );
 
         if (friendsExist.rows.length > 0) {
-            // If the users are already friends, redirect back with an error message
             req.session.error = 'You are already friends.';
             res.redirect('/send_friend_request');
             return;
         }
 
-        // Check if any request already exists and check for timePassed
         const existingRequest = await pool.query(
             'SELECT * FROM Requests WHERE (fromUserID = $1 AND toUserID = $2) OR (fromUserID = $2 AND toUserID = $1)',
             [req.session.userId, toUserID]
@@ -287,14 +272,13 @@ app.post('/send_friend_request', async (req, res) => {
             const currentTime = Math.floor(Date.now() / 1000);
             console.log(`Current time: ${currentTime}, timePassed: ${timePassed}, difference: ${currentTime - timePassed}`);
 
-            if (currentTime - timePassed < 300) { // 5 minutes = 300 seconds
+            if (currentTime - timePassed < 300) {
                 req.session.error = 'You cannot send a friend request to this user again within 5 minutes.';
                 res.redirect('/send_friend_request');
                 return;
             }
         }
 
-        // Insert or update the friend request
         const currentTime = Math.floor(Date.now() / 1000);
         await pool.query(
             `INSERT INTO Requests (fromUserID, toUserID, status, timePassed) 
@@ -311,7 +295,6 @@ app.post('/send_friend_request', async (req, res) => {
     }
 });
 
-// Reject Friend Request
 app.post('/reject_friend_request', async (req, res) => {
     const { fromUserID } = req.body;
     try {
@@ -327,19 +310,16 @@ app.post('/reject_friend_request', async (req, res) => {
     }
 });
 
-// Remove Friend
 app.post('/remove_friend', async (req, res) => {
     const { friendID } = req.body;
     try {
         const currentTime = Math.floor(Date.now() / 1000);
 
-        // Delete the friend relationship
         await pool.query(
             'DELETE FROM Friends WHERE (friend1 = $1 AND friend2 = $2) OR (friend1 = $2 AND friend2 = $1)', 
             [req.session.userId, friendID]
         );
 
-        // Insert or update the related friend requests with the status 'removed' and set the timePassed
         await pool.query(
             `INSERT INTO Requests (fromUserID, toUserID, status, timePassed) 
              VALUES ($1, $2, $3, $4)
@@ -356,7 +336,6 @@ app.post('/remove_friend', async (req, res) => {
 });
 
 
-// View Friend Requests
 app.get('/view_friend_requests', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -381,19 +360,15 @@ app.get('/view_friend_requests', async (req, res) => {
     }
 });
 
-// Accept Friend Request
 app.post('/accept_friend_request', async (req, res) => {
     const { fromUserID } = req.body;
     try {
         await pool.query('BEGIN');
         
-        // Update request status to accepted
         await pool.query('UPDATE Requests SET status = $1 WHERE fromUserID = $2 AND toUserID = $3', ['accepted', fromUserID, req.session.userId]);
 
-        // Insert into Friends table
         await pool.query('INSERT INTO Friends (friend1, friend2) VALUES ($1, $2)', [fromUserID, req.session.userId]);
 
-        // Delete the accepted request from Requests table
         await pool.query('DELETE FROM Requests WHERE fromUserID = $1 AND toUserID = $2', [fromUserID, req.session.userId]);
 
         await pool.query('COMMIT');
@@ -406,7 +381,6 @@ app.post('/accept_friend_request', async (req, res) => {
     }
 });
 
-// View Friends
 app.get('/view_friends', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -426,7 +400,6 @@ app.get('/view_friends', async (req, res) => {
     }
 });
 
-// My Account
 app.get('/my_account', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -464,7 +437,6 @@ app.post('/create_stock_list', async (req, res) => {
     }
 });
 
-// Add Stock to Stock List
 app.get('/add_stock_to_list/:listName', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -566,7 +538,6 @@ app.get('/view_stock_lists', async (req, res) => {
 });
 
 
-// View stock list and statistics
 app.get('/view_stock_list/:listName', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -583,7 +554,6 @@ app.get('/view_stock_list/:listName', async (req, res) => {
 
             const currentTime = new Date();
 
-            // Check cached values for Coefficient of Variation and Beta
             const cvBetaResult = await pool.query(
                 `SELECT code, coefficient_of_variation, beta
                  FROM StockStatisticsCache
@@ -639,7 +609,6 @@ app.get('/view_stock_list/:listName', async (req, res) => {
                 cvBetaResult.rows.push(...newCvBetaResult.rows);
             }
 
-            // Fetch Covariance
             const covarianceResult = await pool.query(
                 `SELECT code1, code2, covariance
                  FROM CovarianceCache
@@ -690,7 +659,6 @@ app.get('/view_stock_list/:listName', async (req, res) => {
                 covarianceResult.rows.push(...newCovarianceResult.rows);
             }
 
-            // Fetch Correlation
             const correlationResult = await pool.query(
                 `SELECT code1, code2, correlation
                  FROM CorrelationCache
@@ -835,7 +803,6 @@ app.post('/share_stock_list', async (req, res) => {
     }
 });
 
-// Route to render the add_review page
 app.get('/add_review/:listName', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -856,16 +823,14 @@ app.get('/add_review/:listName', async (req, res) => {
             res.redirect('/view_all_stock_lists');
         } else {
             res.render('add_review', { listName, error: req.session.error || null });
-            req.session.error = null; // Clear the error after displaying
+            req.session.error = null; 
         }
     }
 });
 
-// Handle form submission for adding a review
 app.post('/add_review', async (req, res) => {
     const { listName, text } = req.body;
     try {
-        // Check if the stock list is accessible to the user and not owned by them
         const stockListResult = await pool.query(
             `SELECT * FROM StockLists 
              WHERE listName = $1 AND (
@@ -879,7 +844,6 @@ app.post('/add_review', async (req, res) => {
             req.session.error = 'You do not have access to this stock list or it is your own.';
             res.redirect('/view_all_stock_lists');
         } else {
-            // Check if a review already exists for this list by this user
             const existingReview = await pool.query(
                 'SELECT * FROM ReviewOn WHERE userID = $1 AND listName = $2',
                 [req.session.userId, listName]
@@ -889,7 +853,6 @@ app.post('/add_review', async (req, res) => {
                 req.session.error = 'You have already reviewed this stock list.';
                 res.redirect(`/add_review/${listName}`);
             } else {
-                // Insert the new review
                 const reviewResult = await pool.query(
                     'INSERT INTO Reviews (userID, text) VALUES ($1, $2) RETURNING reviewID',
                     [req.session.userId, text]
@@ -909,7 +872,6 @@ app.post('/add_review', async (req, res) => {
     }
 });
 
-// View all accessible stock lists
 app.get('/view_all_stock_lists', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -930,7 +892,6 @@ app.get('/view_all_stock_lists', async (req, res) => {
     }
 });
 
-// View reviews for a stock list
 app.get('/view_reviews/:listName', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -965,13 +926,12 @@ app.get('/view_reviews/:listName', async (req, res) => {
     }
 });
 
-// Render the form for editing a review
 app.get('/edit_review/:reviewID', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
         const reviewID = req.params.reviewID;
-        const listName = req.query.listName;  // Get listName from query parameters
+        const listName = req.query.listName; 
         const reviewResult = await pool.query('SELECT * FROM Reviews WHERE reviewID = $1 AND userID = $2', [reviewID, req.session.userId]);
 
         if (reviewResult.rows.length > 0) {
@@ -982,7 +942,6 @@ app.get('/edit_review/:reviewID', async (req, res) => {
     }
 });
 
-// Handle form submission for editing a review
 app.post('/edit_review', async (req, res) => {
     const { reviewID, text, listName } = req.body;
     try {
@@ -995,7 +954,6 @@ app.post('/edit_review', async (req, res) => {
 });
 
 
-// Handle review deletion
 app.post('/delete_review', async (req, res) => {
     const { reviewID, listName } = req.body;
     try {
@@ -1042,7 +1000,6 @@ app.get('/deposit/:portfolioID', (req, res) => {
 });
 
 
-// Handle form submission for depositing cash
 app.post('/deposit', async (req, res) => {
     const { portfolioID, amount } = req.body;
     try {
@@ -1056,7 +1013,6 @@ app.post('/deposit', async (req, res) => {
     }
 });
 
-// Route to render the withdraw form
 app.get('/withdraw/:portfolioID', (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
@@ -1075,7 +1031,6 @@ app.get('/withdraw/:portfolioID', (req, res) => {
     }
 });
 
-// Handle form submission for withdrawing cash
 app.post('/withdraw', async (req, res) => {
     const { portfolioID, amount } = req.body;
     try {
@@ -1098,13 +1053,11 @@ app.post('/withdraw', async (req, res) => {
     }
 });
 
-// Render the form for buying stock
 app.get('/buy_stock/:portfolioID', async (req, res) => {
     let { portfolioID } = req.params;
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        // Extract the integer from the portfolioID string
         const match = portfolioID.match(/(\d+)/);
         if (match) {
             portfolioID = match[0];
@@ -1131,11 +1084,11 @@ app.get('/buy_stock/:portfolioID', async (req, res) => {
                 stockCodes, 
                 error: req.session.error || null,
                 success: req.session.success || null,
-                stockPrice: null, // Initial rendering doesn't have stock price
-                totalCost: null  // Initial rendering doesn't have total cost
+                stockPrice: null, 
+                totalCost: null 
             });
-            req.session.error = null; // Clear the error after displaying
-            req.session.success = null; // Clear the success message after displaying
+            req.session.error = null; 
+            req.session.success = null; 
         } catch (err) {
             console.error(err);
             res.status(500).send('Internal Server Error');
@@ -1146,7 +1099,6 @@ app.get('/buy_stock/:portfolioID', async (req, res) => {
 app.post('/buy_stock', async (req, res) => {
     let { portfolioID, code, shares } = req.body;
 
-    // Extract the integer from the portfolioID string
     const match = portfolioID.match(/(\d+)/);
     if (match) {
         portfolioID = match[0];
@@ -1156,7 +1108,6 @@ app.post('/buy_stock', async (req, res) => {
     }
 
     try {
-        // Fetch the latest stock price for the given stock code
         const stockResult = await pool.query(
             'SELECT * FROM Stocks WHERE code = $1 ORDER BY timestamp DESC LIMIT 1',
             [code]
@@ -1170,7 +1121,6 @@ app.post('/buy_stock', async (req, res) => {
         const stock = stockResult.rows[0];
         const cost = stock.close * shares;
 
-        // Update the portfolio's cash amount
         const portfolioResult = await pool.query('SELECT * FROM Portfolios WHERE portfolioID = $1', [portfolioID]);
         const portfolio = portfolioResult.rows[0];
 
@@ -1184,12 +1134,10 @@ app.post('/buy_stock', async (req, res) => {
             [cost, portfolioID]
         );
 
-        // Check if a stock list for this portfolio already exists
         const stockListResult = await pool.query('SELECT * FROM Includes WHERE portfolioID = $1', [portfolioID]);
         let listName;
 
         if (stockListResult.rows.length === 0) {
-            // Create a new stock list if none exists
             listName = `Portfolio_${portfolioID}_StockList`;
             await pool.query('INSERT INTO StockLists (listName, userID, visibility) VALUES ($1, $2, $3)', [listName, portfolio.userid, 'private']);
             await pool.query('INSERT INTO Includes (portfolioID, listName) VALUES ($1, $2)', [portfolioID, listName]);
@@ -1197,7 +1145,6 @@ app.post('/buy_stock', async (req, res) => {
             listName = stockListResult.rows[0].listname;
         }
 
-        // Insert or update the Contains table with the new stock holding
         await pool.query(
             'INSERT INTO Contains (code, listName, timestamp, shares) VALUES ($1, $2, $3, $4) ' +
             'ON CONFLICT (code, listName, timestamp) DO UPDATE SET shares = Contains.shares + EXCLUDED.shares',
@@ -1213,13 +1160,11 @@ app.post('/buy_stock', async (req, res) => {
 });
 
 
-// Route to render the sell stock form
 app.get('/sell_stock/:portfolioID', async (req, res) => {
     let { portfolioID } = req.params;
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        // Extract the integer from the portfolioID string
         const match = portfolioID.match(/(\d+)/);
         if (match) {
             portfolioID = match[0];
@@ -1258,11 +1203,9 @@ app.get('/sell_stock/:portfolioID', async (req, res) => {
     }
 });
 
-// Handle form submission for selling stock
 app.post('/sell_stock', async (req, res) => {
     let { portfolioID, code, shares } = req.body;
 
-    // Extract the integer from the portfolioID string
     const match = portfolioID.match(/(\d+)/);
     if (match) {
         portfolioID = match[0];
@@ -1272,7 +1215,6 @@ app.post('/sell_stock', async (req, res) => {
     }
 
     try {
-        // Fetch the latest stock price for the given stock code
         const stockResult = await pool.query(
             'SELECT * FROM Stocks WHERE code = $1 ORDER BY timestamp DESC LIMIT 1',
             [code]
@@ -1286,7 +1228,6 @@ app.post('/sell_stock', async (req, res) => {
         const stock = stockResult.rows[0];
         const revenue = stock.close * shares;
 
-        // Check if the user owns enough shares to sell
         const holdingsResult = await pool.query(
             'SELECT c.shares, c.listName FROM Contains c ' +
             'JOIN Includes i ON c.listName = i.listName ' +
@@ -1301,19 +1242,16 @@ app.post('/sell_stock', async (req, res) => {
 
         const listName = holdingsResult.rows[0].listname;
 
-        // Update the portfolio's cash amount
         await pool.query(
             'UPDATE Portfolios SET cashAmount = cashAmount + $1 WHERE portfolioID = $2',
             [revenue, portfolioID]
         );
 
-        // Update the Contains table with the new stock holding
         await pool.query(
             'UPDATE Contains SET shares = shares - $1 WHERE code = $2 AND listName = $3',
             [shares, code, listName]
         );
 
-        // Remove the stock holding if shares become zero or less
         await pool.query(
             'DELETE FROM Contains WHERE code = $1 AND listName = $2 AND shares <= 0',
             [code, listName]
@@ -1329,11 +1267,10 @@ app.post('/sell_stock', async (req, res) => {
 
 
 
-// Route to display historical performance and future prediction
 app.get('/historical_performance/:stockCode', async (req, res) => {
     const stockCode = req.params.stockCode;
-    const pastInterval = req.query.pastInterval || '5y';  // Default to 5 years
-    const futureInterval = req.query.futureInterval || '1y';  // Default to 1 year
+    const pastInterval = req.query.pastInterval || '5y';
+    const futureInterval = req.query.futureInterval || '1y';
 
     try {
         const pastDate = calculatePastDate(pastInterval);
@@ -1406,7 +1343,7 @@ function identifyRecessionEvents(pastData) {
     const recessionEvents = [];
     for (let i = 1; i < pastData.length; i++) {
         const drop = (pastData[i].close - pastData[i - 1].close) / pastData[i - 1].close;
-        if (drop <= -0.7) { // Example threshold for a sharp decline (10%)
+        if (drop <= -0.7) {
             recessionEvents.push({ index: i, drop });
         }
     }
@@ -1429,7 +1366,7 @@ function generateFutureData(lastClosePrice, interval, pastDataLength, averageGro
         if (i % 80 === 0) {
             currentPrice *= (1 - (Math.random() * 0.04 + 0.02));
         } else {
-            currentPrice *= 1 + averageGrowthRate + (Math.random() * 0.01 - 0.005); // Random fluctuation
+            currentPrice *= 1 + averageGrowthRate + (Math.random() * 0.01 - 0.005);
         }
         futureData.push({
             index: pastDataLength + i,
