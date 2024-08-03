@@ -547,7 +547,8 @@ app.get('/view_stock_lists', async (req, res) => {
                         CASE 
                             WHEN p.portfolioID IS NOT NULL THEN TRUE 
                             ELSE FALSE 
-                        END AS isPortfolio
+                        END AS isPortfolio, 
+                        p.portfolioID
                  FROM StockLists sl
                  LEFT JOIN Includes i ON sl.listName = i.listName
                  LEFT JOIN Portfolios p ON i.portfolioID = p.portfolioID
@@ -564,7 +565,6 @@ app.get('/view_stock_lists', async (req, res) => {
         }
     }
 });
-
 
 
 // View stock list and statistics
@@ -1027,11 +1027,21 @@ app.get('/deposit/:portfolioID', (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        const { portfolioID } = req.params;
+        let { portfolioID } = req.params;
+        
+        const match = portfolioID.match(/(\d+)/);
+        if (match) {
+            portfolioID = match[0];
+        } else {
+            req.session.error = 'Invalid portfolio ID.';
+            return res.redirect('/view_stock_lists');
+        }
+
         res.render('deposit', { portfolioID, error: req.session.error || null });
         req.session.error = null;
     }
 });
+
 
 // Handle form submission for depositing cash
 app.post('/deposit', async (req, res) => {
@@ -1039,7 +1049,7 @@ app.post('/deposit', async (req, res) => {
     try {
         await pool.query('UPDATE Portfolios SET cashAmount = cashAmount + $1 WHERE portfolioID = $2 AND userID = $3', 
                          [amount, portfolioID, req.session.userId]);
-        res.redirect('/view_portfolios');
+        res.redirect('/dashboard');
     } catch (err) {
         console.error(err);
         req.session.error = 'Deposit failed.';
@@ -1052,7 +1062,15 @@ app.get('/withdraw/:portfolioID', (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        const { portfolioID } = req.params;
+        let { portfolioID } = req.params;
+        
+        const match = portfolioID.match(/(\d+)/);
+        if (match) {
+            portfolioID = match[0];
+        } else {
+            req.session.error = 'Invalid portfolio ID.';
+            return res.redirect('/view_stock_lists');
+        }
         res.render('withdraw', { portfolioID, error: req.session.error || null });
         req.session.error = null;
     }
@@ -1072,7 +1090,7 @@ app.post('/withdraw', async (req, res) => {
         } else {
             await pool.query('UPDATE Portfolios SET cashAmount = cashAmount - $1 WHERE portfolioID = $2 AND userID = $3', 
                              [amount, portfolioID, req.session.userId]);
-            res.redirect('/view_portfolios');
+            res.redirect('/dashboard');
         }
     } catch (err) {
         console.error(err);
