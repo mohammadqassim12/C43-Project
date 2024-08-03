@@ -1,23 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Send Friend Request</title>
-    <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
     <h1>Send Friend Request</h1>
     <% if (locals.error) { %>
-        <p style="color: red;"><%= error %></p>
+    <p style="color: red"><%= error %></p>
     <% } %>
     <form method="post" action="/send_friend_request">
-        <label for="toUserID">User ID to send request to:</label>
-        <input type="number" id="toUserID" name="toUserID" required>
-        <button type="submit">Send Request</button>
+      <label for="toUserID">User ID to send request to:</label>
+      <input type="number" id="toUserID" name="toUserID" required />
+      <button type="submit">Send Request</button>
     </form>
     <nav>
-        <a href="/dashboard">Dashboard</a>
+      <a href="/dashboard">Dashboard</a>
     </nav>
-</body>
+  </body>
 </html>

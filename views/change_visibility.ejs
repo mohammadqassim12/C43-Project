@@ -1,25 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Change Visibility</title>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Change Visibility of Stock List</h1>
     <% if (error) { %>
-        <p style="color: red;"><%= error %></p>
+    <p style="color: red"><%= error %></p>
     <% } %>
     <form method="post" action="/change_visibility">
-        <label for="listName">List Name:</label>
-        <input type="text" id="listName" name="listName" required>
-        <label for="visibility">Visibility:</label>
-        <select id="visibility" name="visibility" required>
-            <option value="private">Private</option>
-            <option value="public">Public</option>
-        </select>
-        <button type="submit">Change Visibility</button>
+      <label for="listName">List Name:</label>
+      <input type="text" id="listName" name="listName" required />
+      <label for="visibility">Visibility:</label>
+      <select id="visibility" name="visibility" required>
+        <option value="private">Private</option>
+        <option value="public">Public</option>
+      </select>
+      <button type="submit">Change Visibility</button>
     </form>
     <a href="/dashboard">Back to Dashboard</a>
-</body>
+  </body>
 </html>

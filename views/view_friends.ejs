@@ -1,46 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>View Friends</title>
-    <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
     <h1>View Friends</h1>
     <table>
-        <thead>
-            <tr>
-                <th>User ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            <% if (friends && friends.length > 0) { %>
-                <% friends.forEach(friend => { %>
-                    <tr>
-                        <td><%= friend.userid %></td>
-                        <td><%= friend.name %></td>
-                        <td><%= friend.email %></td>
-                        <td>
-                            <form method="post" action="/remove_friend">
-                                <input type="hidden" name="friendID" value="<%= friend.userid %>">
-                                <button type="submit">Remove</button>
-                            </form>
-                        </td>
-                    </tr>
-                <% }); %>
-            <% } else { %>
-                <tr>
-                    <td colspan="4">No friends found.</td>
-                </tr>
-            <% } %>
-        </tbody>
+      <thead>
+        <tr>
+          <th>User ID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (friends && friends.length > 0) { %> <% friends.forEach(friend =>
+        { %>
+        <tr>
+          <td><%= friend.userid %></td>
+          <td><%= friend.name %></td>
+          <td><%= friend.email %></td>
+          <td>
+            <form method="post" action="/remove_friend">
+              <input
+                type="hidden"
+                name="friendID"
+                value="<%= friend.userid %>"
+              />
+              <button type="submit">Remove</button>
+            </form>
+          </td>
+        </tr>
+        <% }); %> <% } else { %>
+        <tr>
+          <td colspan="4">No friends found.</td>
+        </tr>
+        <% } %>
+      </tbody>
     </table>
     <nav>
-        <a href="/dashboard">Dashboard</a>
+      <a href="/dashboard">Dashboard</a>
     </nav>
-</body>
+  </body>
 </html>

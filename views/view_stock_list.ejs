@@ -1,144 +1,151 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>View Stock List: <%= listName %></title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f8f9fa;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-        }
-        h1, h2, h3 {
-            color: #4CAF50;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-            background-color: #fff;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: center;
-        }
-        th {
-            background-color: #4CAF50;
-            color: white;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        tr:hover {
-            background-color: #f1f1f1;
-        }
-        a {
-            color: #4CAF50;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        .back-link {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 15px;
-            background-color: #4CAF50;
-            color: white;
-            text-align: center;
-            text-decoration: none;
-            border-radius: 4px;
-        }
-        .back-link:hover {
-            background-color: #45a049;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f8f9fa;
+        color: #333;
+        margin: 0;
+        padding: 20px;
+      }
+      h1,
+      h2,
+      h3 {
+        color: #4caf50;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        background-color: #fff;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: center;
+      }
+      th {
+        background-color: #4caf50;
+        color: white;
+      }
+      tr:nth-child(even) {
+        background-color: #f9f9f9;
+      }
+      tr:hover {
+        background-color: #f1f1f1;
+      }
+      a {
+        color: #4caf50;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .back-link {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 10px 15px;
+        background-color: #4caf50;
+        color: white;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 4px;
+      }
+      .back-link:hover {
+        background-color: #45a049;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Stock List: <%= listName %></h1>
     <table>
-        <thead>
-            <tr>
-                <th>Stock Code</th>
-                <th>Timestamp</th>
-                <th>Shares</th>
-                <th>Open</th>
-                <th>High</th>
-                <th>Low</th>
-                <th>Close</th>
-                <th>Volume</th>
-                <th>Coefficient of Variation</th>
-                <th>Beta</th>
-            </tr>
-        </thead>
-        <tbody>
-            <% stocks.forEach(stock => { %>
-                <tr>
-                    <td><a href="/historical_performance/<%= stock.code %>"><%= stock.code %></a></td>
-                    <td><%= new Date(stock.timestamp).toDateString() %></td>
-                    <td><%= stock.shares %></td>
-                    <td><%= stock.open %></td>
-                    <td><%= stock.high %></td>
-                    <td><%= stock.low %></td>
-                    <td><%= stock.close %></td>
-                    <td><%= stock.volume %></td>
-                    <% 
-                        const cvBeta = cvBetaData.find(cb => cb.code === stock.code);
-                    %>
-                    <td><%= cvBeta ? cvBeta.coefficient_of_variation.toFixed(2) : 'N/A' %></td>
-                    <td><%= cvBeta ? cvBeta.beta.toFixed(2) : 'N/A' %></td>
-                </tr>
-            <% }) %>
-        </tbody>
+      <thead>
+        <tr>
+          <th>Stock Code</th>
+          <th>Timestamp</th>
+          <th>Shares</th>
+          <th>Open</th>
+          <th>High</th>
+          <th>Low</th>
+          <th>Close</th>
+          <th>Volume</th>
+          <th>Coefficient of Variation</th>
+          <th>Beta</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% stocks.forEach(stock => { %>
+        <tr>
+          <td>
+            <a href="/historical_performance/<%= stock.code %>"
+              ><%= stock.code %></a
+            >
+          </td>
+          <td><%= new Date(stock.timestamp).toDateString() %></td>
+          <td><%= stock.shares %></td>
+          <td><%= stock.open %></td>
+          <td><%= stock.high %></td>
+          <td><%= stock.low %></td>
+          <td><%= stock.close %></td>
+          <td><%= stock.volume %></td>
+          <% const cvBeta = cvBetaData.find(cb => cb.code === stock.code); %>
+          <td>
+            <%= cvBeta ? cvBeta.coefficient_of_variation.toFixed(2) : 'N/A' %>
+          </td>
+          <td><%= cvBeta ? cvBeta.beta.toFixed(2) : 'N/A' %></td>
+        </tr>
+        <% }) %>
+      </tbody>
     </table>
-    
+
     <h2>Portfolio Statistics</h2>
-    
+
     <h3>Covariance Matrix</h3>
     <table>
-        <thead>
-            <tr>
-                <th>Stock Code 1</th>
-                <th>Stock Code 2</th>
-                <th>Covariance</th>
-            </tr>
-        </thead>
-        <tbody>
-            <% covarianceData.forEach(data => { %>
-                <tr>
-                    <td><%= data.code1 %></td>
-                    <td><%= data.code2 %></td>
-                    <td><%= data.covariance.toFixed(2) %></td>
-                </tr>
-            <% }) %>
-        </tbody>
+      <thead>
+        <tr>
+          <th>Stock Code 1</th>
+          <th>Stock Code 2</th>
+          <th>Covariance</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% covarianceData.forEach(data => { %>
+        <tr>
+          <td><%= data.code1 %></td>
+          <td><%= data.code2 %></td>
+          <td><%= data.covariance.toFixed(2) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
     </table>
 
     <h3>Correlation Matrix</h3>
     <table>
-        <thead>
-            <tr>
-                <th>Stock Code 1</th>
-                <th>Stock Code 2</th>
-                <th>Correlation</th>
-            </tr>
-        </thead>
-        <tbody>
-            <% correlationData.forEach(data => { %>
-                <tr>
-                    <td><%= data.code1 %></td>
-                    <td><%= data.code2 %></td>
-                    <td><%= data.correlation.toFixed(2) %></td>
-                </tr>
-            <% }) %>
-        </tbody>
+      <thead>
+        <tr>
+          <th>Stock Code 1</th>
+          <th>Stock Code 2</th>
+          <th>Correlation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% correlationData.forEach(data => { %>
+        <tr>
+          <td><%= data.code1 %></td>
+          <td><%= data.code2 %></td>
+          <td><%= data.correlation.toFixed(2) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
     </table>
 
     <a href="/view_stock_lists" class="back-link">Back to Stock Lists</a>
-</body>
+  </body>
 </html>
