@@ -89,6 +89,9 @@
             const futureDataPoints = <%= JSON.stringify(futureData.map(data => data.close)) %>;
 
             new Chart(ctx, {
+                animation: {
+                    duration: 0 
+                },                 
                 type: 'line',
                 data: {
                     labels: pastDataIndices.concat(futureDataIndices),
@@ -122,7 +125,7 @@
                             }
                         }
                     }
-                }
+                }               
             });
         });
     </script>
