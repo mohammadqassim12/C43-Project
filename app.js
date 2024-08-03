@@ -669,7 +669,7 @@ app.get("/view_stock_list/:listName", async (req, res) => {
           [missingCodes]
         );
 
-        const insertPromises = newCvBetaResult.rows.map((row) => {
+        const insertData = newCvBetaResult.rows.map((row) => {
           return pool.query(
             `INSERT INTO StockStatisticsCache (code, coefficient_of_variation, beta, last_updated)
                          VALUES ($1, $2, $3, $4)
@@ -681,7 +681,7 @@ app.get("/view_stock_list/:listName", async (req, res) => {
           );
         });
 
-        await Promise.all(insertPromises);
+        await Promise.all(insertData);
         cvBetaResult.rows.push(...newCvBetaResult.rows);
       }
 
@@ -729,7 +729,7 @@ app.get("/view_stock_list/:listName", async (req, res) => {
           [listName]
         );
 
-        const insertCovPromises = newCovarianceResult.rows.map((row) => {
+        const insertCovData = newCovarianceResult.rows.map((row) => {
           return pool.query(
             `INSERT INTO CovarianceCache (code1, code2, covariance, last_updated)
                          VALUES ($1, $2, $3, $4)
@@ -740,7 +740,7 @@ app.get("/view_stock_list/:listName", async (req, res) => {
           );
         });
 
-        await Promise.all(insertCovPromises);
+        await Promise.all(insertCovData);
         covarianceResult.rows.push(...newCovarianceResult.rows);
       }
 
@@ -788,7 +788,7 @@ app.get("/view_stock_list/:listName", async (req, res) => {
           [listName]
         );
 
-        const insertCorrPromises = newCorrelationResult.rows.map((row) => {
+        const insertCorrData = newCorrelationResult.rows.map((row) => {
           return pool.query(
             `INSERT INTO CorrelationCache (code1, code2, correlation, last_updated)
                          VALUES ($1, $2, $3, $4)
@@ -799,7 +799,7 @@ app.get("/view_stock_list/:listName", async (req, res) => {
           );
         });
 
-        await Promise.all(insertCorrPromises);
+        await Promise.all(insertCorrData);
         correlationResult.rows.push(...newCorrelationResult.rows);
       }
 
