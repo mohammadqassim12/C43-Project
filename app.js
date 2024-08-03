@@ -119,7 +119,7 @@ app.get("/dashboard", async (req, res) => {
       res.render("dashboard", { user, portfolios });
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -136,7 +136,7 @@ app.get("/add_stock", async (req, res) => {
       res.render("add_stock", { stockCodes });
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -152,7 +152,7 @@ app.post("/add_stock", async (req, res) => {
     res.redirect("/dashboard");
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -235,7 +235,7 @@ app.post("/create_portfolio", async (req, res) => {
     res.redirect("/dashboard");
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -261,7 +261,7 @@ app.get("/view_portfolios", async (req, res) => {
       res.render("view_portfolios", { portfolios });
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -340,7 +340,7 @@ app.post("/send_friend_request", async (req, res) => {
     res.redirect("/dashboard");
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -355,7 +355,7 @@ app.post("/reject_friend_request", async (req, res) => {
     res.redirect("/view_friend_requests");
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -380,7 +380,7 @@ app.post("/remove_friend", async (req, res) => {
     res.redirect("/view_friends");
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -403,7 +403,7 @@ app.get("/view_friend_requests", async (req, res) => {
       });
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -434,7 +434,7 @@ app.post("/accept_friend_request", async (req, res) => {
   } catch (err) {
     await pool.query("ROLLBACK");
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -455,7 +455,7 @@ app.get("/view_friends", async (req, res) => {
       res.render("view_friends", { friends: result.rows });
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -501,7 +501,7 @@ app.post("/create_stock_list", async (req, res) => {
     res.redirect("/dashboard");
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -524,7 +524,7 @@ app.get("/add_stock_to_list/:listName", async (req, res) => {
       });
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -553,7 +553,7 @@ app.post("/add_stock_to_list/:listName", async (req, res) => {
     res.redirect(`/view_stock_list/${listName}`);
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -581,7 +581,7 @@ app.post("/change_visibility", async (req, res) => {
     res.redirect("/view_stock_lists");
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -612,7 +612,7 @@ app.get("/view_stock_lists", async (req, res) => {
       });
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -818,7 +818,7 @@ app.get("/view_stock_list/:listName", async (req, res) => {
       });
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -837,7 +837,7 @@ app.get("/stock_price", async (req, res) => {
     }
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    res.status(500).json({ success: false, message: "error" });
   }
 });
 
@@ -861,7 +861,7 @@ app.get("/share_stock_list", async (req, res) => {
       });
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -904,7 +904,7 @@ app.post("/share_stock_list", async (req, res) => {
     res.redirect("/share_stock_list");
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -978,7 +978,7 @@ app.post("/add_review", async (req, res) => {
     }
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -1000,7 +1000,7 @@ app.get("/view_all_stock_lists", async (req, res) => {
       });
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -1045,7 +1045,7 @@ app.get("/view_reviews/:listName", async (req, res) => {
       }
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -1079,7 +1079,7 @@ app.post("/edit_review", async (req, res) => {
     res.redirect(`/view_reviews/${listName}`);
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -1116,7 +1116,7 @@ app.post("/delete_review", async (req, res) => {
     }
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -1241,7 +1241,7 @@ app.get("/buy_stock/:portfolioID", async (req, res) => {
       req.session.success = null;
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -1317,7 +1317,7 @@ app.post("/buy_stock", async (req, res) => {
     res.redirect(`/buy_stock/${portfolioID}`);
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -1362,7 +1362,7 @@ app.get("/sell_stock/:portfolioID", async (req, res) => {
       req.session.success = null;
     } catch (err) {
       console.error(err);
-      res.status(500).send("Internal Server Error");
+      res.status(500).send("error");
     }
   }
 });
@@ -1428,7 +1428,7 @@ app.post("/sell_stock", async (req, res) => {
     res.redirect(`/sell_stock/${portfolioID}`);
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
@@ -1472,7 +1472,7 @@ app.get("/historical_performance/:stockCode", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
   }
 });
 
