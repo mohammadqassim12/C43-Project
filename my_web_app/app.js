@@ -1101,10 +1101,19 @@ app.post('/withdraw', async (req, res) => {
 
 // Render the form for buying stock
 app.get('/buy_stock/:portfolioID', async (req, res) => {
-    const { portfolioID } = req.params;
+    let { portfolioID } = req.params;
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
+        // Extract the integer from the portfolioID string
+        const match = portfolioID.match(/(\d+)/);
+        if (match) {
+            portfolioID = match[0];
+        } else {
+            req.session.error = 'Invalid portfolio ID.';
+            return res.redirect('/view_stock_lists');
+        }
+
         try {
             const portfolioResult = await pool.query('SELECT * FROM Portfolios WHERE portfolioID = $1 AND userID = $2', [portfolioID, req.session.userId]);
             const stockCodesResult = await pool.query('SELECT DISTINCT code FROM Stocks');
@@ -1136,7 +1145,17 @@ app.get('/buy_stock/:portfolioID', async (req, res) => {
 });
 
 app.post('/buy_stock', async (req, res) => {
-    const { portfolioID, code, shares } = req.body;
+    let { portfolioID, code, shares } = req.body;
+
+    // Extract the integer from the portfolioID string
+    const match = portfolioID.match(/(\d+)/);
+    if (match) {
+        portfolioID = match[0];
+    } else {
+        req.session.error = 'Invalid portfolio ID.';
+        return res.redirect('/view_stock_lists');
+    }
+
     try {
         // Fetch the latest stock price for the given stock code
         const stockResult = await pool.query(
@@ -1197,10 +1216,19 @@ app.post('/buy_stock', async (req, res) => {
 
 // Route to render the sell stock form
 app.get('/sell_stock/:portfolioID', async (req, res) => {
+    let { portfolioID } = req.params;
     if (!req.session.userId) {
         res.redirect('/login');
     } else {
-        const { portfolioID } = req.params;
+        // Extract the integer from the portfolioID string
+        const match = portfolioID.match(/(\d+)/);
+        if (match) {
+            portfolioID = match[0];
+        } else {
+            req.session.error = 'Invalid portfolio ID.';
+            return res.redirect('/view_stock_lists');
+        }
+
         try {
             const stocksResult = await pool.query(
                 'SELECT c.code, c.shares FROM Contains c ' +
@@ -1233,7 +1261,17 @@ app.get('/sell_stock/:portfolioID', async (req, res) => {
 
 // Handle form submission for selling stock
 app.post('/sell_stock', async (req, res) => {
-    const { portfolioID, code, shares } = req.body;
+    let { portfolioID, code, shares } = req.body;
+
+    // Extract the integer from the portfolioID string
+    const match = portfolioID.match(/(\d+)/);
+    if (match) {
+        portfolioID = match[0];
+    } else {
+        req.session.error = 'Invalid portfolio ID.';
+        return res.redirect('/view_stock_lists');
+    }
+
     try {
         // Fetch the latest stock price for the given stock code
         const stockResult = await pool.query(
@@ -1289,6 +1327,7 @@ app.post('/sell_stock', async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
+
 
 
 // Route to display historical performance and future prediction
