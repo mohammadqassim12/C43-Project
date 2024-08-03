@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Stock Lists</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+        .notification {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+            color: #555;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            margin: 4px 2px;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .btn:active {
+            background-color: #3e8e41;
+        }
+        .stock-list a {
+            display: inline-block;
+            padding: 5px 10px;
+            margin: 2px 0;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 3px;
+            text-decoration: none;
+        }
+        .stock-list a:hover {
+            background-color: #45a049;
+        }
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown select {
+            padding: 8px 32px 8px 16px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        }
+        .dropdown::after {
+            content: '▼';
+            font-size: 12px;
+            color: #555;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Stock Lists</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Stock List Name</th>
+                    <th>Visibility</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% stockLists.forEach(stockList => { %>
+                    <tr>
+                        <td><%= stockList.listname %></td>
+                        <td>
+                            <form action="/change_visibility" method="POST">
+                                <input type="hidden" name="listName" value="<%= stockList.listname %>">
+                                <div class="dropdown">
+                                    <select name="visibility" required>
+                                        <option value="public" <%= stockList.visibility === 'public' ? 'selected' : '' %>>Public</option>
+                                        <option value="private" <%= stockList.visibility === 'private' ? 'selected' : '' %>>Private</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn">Change</button>
+                            </form>
+                        </td>
+                        <td>
+                            <% if (stockList.isportfolio) { %>
+                                <a class="btn" href="/buy_stock/<%= stockList.portfolioid %>">Buy Stock</a>
+                                <a class="btn" href="/sell_stock/<%= stockList.portfolioid %>">Sell Stock</a>
+                                <a class="btn" href="/deposit/<%= stockList.portfolioid %>">Deposit</a>
+                                <a class="btn" href="/withdraw/<%= stockList.portfolioid %>">Withdraw</a>
+                            <% } else { %>
+                                <a class="btn" href="/view_stock_list/<%= stockList.listname %>">View</a>
+                                <% if (stockList.userid === userId) { %>
+                                    <a class="btn" href="/add_stock_to_list/<%= stockList.listname %>">Add Stock</a>
+                                <% } %>
+                                <% if (stockList.userid !== userId) { %>
+                                    <a class="btn" href="/add_review/<%= stockList.listname %>">Add Review</a>
+                                <% } %>
+                                <a class="btn" href="/view_reviews/<%= stockList.listname %>">View Reviews</a>
+                            <% } %>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+        <a class="btn" href="/dashboard">Back to Dashboard</a>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const notification = document.getElementById('notification');
+            if (notification) {
+                notification.style.display = 'block';
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>

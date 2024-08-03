@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Friend Requests</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <h1>View Friend Requests</h1>
+    <h2>Incoming Requests</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>From User ID</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% if (incomingRequests && incomingRequests.length > 0) { %>
+                <% incomingRequests.forEach(request => { %>
+                    <tr>
+                        <td><%= request.fromuserid %></td>
+                        <td><%= request.status %></td>
+                        <td>
+                            <form method="post" action="/accept_friend_request">
+                                <input type="hidden" name="fromUserID" value="<%= request.fromuserid %>">
+                                <button type="submit">Accept</button>
+                            </form>
+                            <form method="post" action="/reject_friend_request">
+                                <input type="hidden" name="fromUserID" value="<%= request.fromuserid %>">
+                                <button type="submit">Reject</button>
+                            </form>
+                            
+                        </td>
+                    </tr>
+                <% }); %>
+            <% } else { %>
+                <tr>
+                    <td colspan="3">No incoming friend requests.</td>
+                </tr>
+            <% } %>
+        </tbody>
+    </table>
+
+    <h2>Outgoing Requests</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>To User ID</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% if (outgoingRequests && outgoingRequests.length > 0) { %>
+                <% outgoingRequests.forEach(request => { %>
+                    <tr>
+                        <td><%= request.touserid %></td>
+                        <td><%= request.status %></td>
+                        <td>
+                            <form method="post" action="/cancel_friend_request">
+                                <input type="hidden" name="toUserID" value="<%= request.touserid %>">
+                                <button type="submit">Cancel</button>
+                            </form>
+                        </td>
+                    </tr>
+                <% }); %>
+            <% } else { %>
+                <tr>
+                    <td colspan="3">No outgoing friend requests.</td>
+                </tr>
+            <% } %>
+        </tbody>
+    </table>
+
+    <nav>
+        <a href="/dashboard">Dashboard</a>
+    </nav>
+</body>
+</html>
