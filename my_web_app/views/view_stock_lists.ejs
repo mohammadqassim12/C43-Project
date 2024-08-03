@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View My Stock Lists</title>
+    <title>View Stock Lists</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -109,7 +109,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>My Stock Lists</h1>
+        <h1>Stock Lists</h1>
         <% if (successMessage) { %>
             <div id="notification" class="notification"><%= successMessage %></div>
         <% } %>
@@ -138,8 +138,15 @@
                             </form>
                         </td>
                         <td>
-                            <a class="btn" href="/view_stock_list/<%= stockList.listname %>">View</a>
-                            <a class="btn" href="/add_stock_to_list/<%= stockList.listname %>">Add Stock</a>
+                            <% if (stockList.isportfolio) { %>
+                                <a class="btn" href="/buy_stock/<%= stockList.listname %>">Buy Stock</a>
+                                <a class="btn" href="/sell_stock/<%= stockList.listname %>">Sell Stock</a>
+                                <a class="btn" href="/deposit/<%= stockList.listname %>">Deposit</a>
+                                <a class="btn" href="/withdraw/<%= stockList.listname %>">Withdraw</a>
+                            <% } else { %>
+                                <a class="btn" href="/view_stock_list/<%= stockList.listname %>">View</a>
+                                <a class="btn" href="/add_stock_to_list/<%= stockList.listname %>">Add Stock</a>
+                            <% } %>
                         </td>
                     </tr>
                 <% }) %>

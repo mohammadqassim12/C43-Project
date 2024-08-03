@@ -542,19 +542,30 @@ app.get('/view_stock_lists', async (req, res) => {
         res.redirect('/login');
     } else {
         try {
-            const stockListsResult = await pool.query(
-                'SELECT listName, visibility FROM StockLists WHERE userID = $1',
+            const result = await pool.query(
+                `SELECT sl.listName, sl.visibility, 
+                        CASE 
+                            WHEN p.portfolioID IS NOT NULL THEN TRUE 
+                            ELSE FALSE 
+                        END AS isPortfolio
+                 FROM StockLists sl
+                 LEFT JOIN Includes i ON sl.listName = i.listName
+                 LEFT JOIN Portfolios p ON i.portfolioID = p.portfolioID
+                 WHERE sl.userID = $1`,
                 [req.session.userId]
             );
+
             const successMessage = req.session.successMessage || null;
-            req.session.successMessage = null;
-            res.render('view_stock_lists', { stockLists: stockListsResult.rows, successMessage });
+            delete req.session.successMessage;
+            res.render('view_stock_lists', { successMessage, stockLists: result.rows });
         } catch (err) {
             console.error(err);
             res.status(500).send('Internal Server Error');
         }
     }
 });
+
+
 
 // View stock list and statistics
 app.get('/view_stock_list/:listName', async (req, res) => {
