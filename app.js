@@ -1,10 +1,7 @@
 const express = require("express");
-const bodyParser = require("body-parser");
 const { Pool } = require("pg");
 const path = require("path");
 const session = require("express-session");
-const { JSDOM } = require("jsdom");
-const { Chart } = require("chart.js");
 
 const app = express();
 const pool = new Pool({
@@ -14,10 +11,8 @@ const pool = new Pool({
   password: "admin",
   port: 5432,
 });
-const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
 
 app.set("view engine", "ejs");
-app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use(
@@ -27,6 +22,8 @@ app.use(
     saveUninitialized: true,
   })
 );
+
+const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
 
 app.get("/", (req, res) => {
   res.render("index");
