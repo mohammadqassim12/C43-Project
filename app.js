@@ -886,8 +886,7 @@ app.post("/share_stock_list", async (req, res) => {
     );
 
     if (alreadyShared.rows.length > 0) {
-      req.session.error =
-        "You have already shared this stock list";
+      req.session.error = "You have already shared this stock list";
       return res.redirect("/share_stock_list");
     }
 
@@ -922,8 +921,7 @@ app.get("/add_review/:listName", async (req, res) => {
       stockListResult.rows.length === 0 ||
       stockListResult.rows[0].userid === req.session.userId
     ) {
-      req.session.error =
-        "You do not have access or it is your stock list";
+      req.session.error = "You do not have access or it is your stock list";
       res.redirect("/view_all_stock_lists");
     } else {
       res.render("add_review", { listName, error: req.session.error || null });
@@ -945,8 +943,7 @@ app.post("/add_review", async (req, res) => {
     );
 
     if (stockListResult.rows.length === 0) {
-      req.session.error =
-        "You do not have access or it is your stock list";
+      req.session.error = "You do not have access or it is your stock list";
       res.redirect("/view_all_stock_lists");
     } else {
       const existingReview = await pool.query(
@@ -1433,7 +1430,6 @@ app.get("/historical_performance/:stockCode", async (req, res) => {
   const futureInterval = req.query.futureInterval || "1y";
 
   try {
-    // Fetch the latest timestamp for the stock
     const latestDateResult = await pool.query(
       `SELECT MAX(timestamp) AS latest_date FROM Stocks WHERE code = $1`,
       [stockCode]
