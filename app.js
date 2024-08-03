@@ -279,7 +279,7 @@ app.post("/send_friend_request", async (req, res) => {
   const { toUserID } = req.body;
 
   if (req.session.userId == toUserID) {
-    req.session.error = "You cannot send a friend request to yourself.";
+    req.session.error = "You cant send a friend request to yourself";
     return res.redirect("/send_friend_request");
   }
 
@@ -290,7 +290,7 @@ app.post("/send_friend_request", async (req, res) => {
     );
 
     if (userExists.rows.length === 0) {
-      req.session.error = "User does not exist.";
+      req.session.error = "User does not exist";
       res.redirect("/send_friend_request");
       return;
     }
@@ -301,7 +301,7 @@ app.post("/send_friend_request", async (req, res) => {
     );
 
     if (friendsExist.rows.length > 0) {
-      req.session.error = "You are already friends.";
+      req.session.error = "You are already friends";
       res.redirect("/send_friend_request");
       return;
     }
@@ -317,7 +317,7 @@ app.post("/send_friend_request", async (req, res) => {
 
       if (currentTime - timePassed < 300) {
         req.session.error =
-          "You cannot send a friend request to this user again within 5 minutes.";
+          "You cant send a frend request to this user again for 5 minutes";
         res.redirect("/send_friend_request");
         return;
       }
@@ -429,7 +429,7 @@ app.post("/accept_friend_request", async (req, res) => {
   } catch (err) {
     await pool.query("ROLLBACK");
     console.error(err);
-    res.status(500).send("error");
+    res.status(500).send("eror");
   }
 });
 
@@ -534,7 +534,7 @@ app.post("/add_stock_to_list/:listName", async (req, res) => {
     );
 
     if (latestStock.rows.length === 0) {
-      req.session.error = "Stock code not found.";
+      req.session.error = "Stock code not found";
       return res.redirect(`/add_stock_to_list/${listName}`);
     }
 
@@ -572,7 +572,7 @@ app.post("/change_visibility", async (req, res) => {
       "UPDATE StockLists SET visibility = $1 WHERE listName = $2 AND userID = $3",
       [visibility, listName, req.session.userId]
     );
-    req.session.successMessage = "Visibility updated successfully!";
+    req.session.successMessage = "Visibility updated";
     res.redirect("/view_stock_lists");
   } catch (err) {
     console.error(err);
@@ -607,7 +607,7 @@ app.get("/view_stock_lists", async (req, res) => {
       });
     } catch (err) {
       console.error(err);
-      res.status(500).send("error");
+      res.status(500).send("erro");
     }
   }
 });
@@ -828,7 +828,7 @@ app.get("/stock_price", async (req, res) => {
     if (result.rows.length > 0) {
       res.json({ success: true, price: result.rows[0].close });
     } else {
-      res.json({ success: false, message: "Stock price not found." });
+      res.json({ success: false, message: "Stock price not found" });
     }
   } catch (err) {
     console.error(err);
@@ -865,7 +865,7 @@ app.post("/share_stock_list", async (req, res) => {
   const { listName, userID } = req.body;
 
   if (req.session.userId == userID) {
-    req.session.error = "You cannot share the stock list with yourself.";
+    req.session.error = "You cant share the stock list with yourself";
     return res.redirect("/share_stock_list");
   }
 
@@ -876,7 +876,7 @@ app.post("/share_stock_list", async (req, res) => {
     );
 
     if (userExists.rows.length === 0) {
-      req.session.error = "User does not exist.";
+      req.session.error = "User doesnt exist";
       return res.redirect("/share_stock_list");
     }
 
@@ -887,7 +887,7 @@ app.post("/share_stock_list", async (req, res) => {
 
     if (alreadyShared.rows.length > 0) {
       req.session.error =
-        "You have already shared this stock list with this user.";
+        "You have already shared this stock list";
       return res.redirect("/share_stock_list");
     }
 
@@ -895,7 +895,7 @@ app.post("/share_stock_list", async (req, res) => {
       userID,
       listName,
     ]);
-    req.session.success = `Stock list "${listName}" shared with user ID ${userID} successfully.`;
+    req.session.success = `Stock lis "${listName}" shared with user ID ${userID} successfully`;
     res.redirect("/share_stock_list");
   } catch (err) {
     console.error(err);
@@ -923,7 +923,7 @@ app.get("/add_review/:listName", async (req, res) => {
       stockListResult.rows[0].userid === req.session.userId
     ) {
       req.session.error =
-        "You do not have access to this stock list or you own it.";
+        "You do not have access or it is your stock list";
       res.redirect("/view_all_stock_lists");
     } else {
       res.render("add_review", { listName, error: req.session.error || null });
@@ -946,7 +946,7 @@ app.post("/add_review", async (req, res) => {
 
     if (stockListResult.rows.length === 0) {
       req.session.error =
-        "You do not have access to this stock list or it is your own.";
+        "You do not have access or it is your stock list";
       res.redirect("/view_all_stock_lists");
     } else {
       const existingReview = await pool.query(
@@ -955,7 +955,7 @@ app.post("/add_review", async (req, res) => {
       );
 
       if (existingReview.rows.length > 0) {
-        req.session.error = "You have already reviewed this stock list.";
+        req.session.error = "You have already reviewed this list";
         res.redirect(`/add_review/${listName}`);
       } else {
         const reviewResult = await pool.query(
@@ -995,7 +995,7 @@ app.get("/view_all_stock_lists", async (req, res) => {
       });
     } catch (err) {
       console.error(err);
-      res.status(500).send("error");
+      res.status(500).send("rror");
     }
   }
 });
@@ -1059,7 +1059,7 @@ app.get("/edit_review/:reviewID", async (req, res) => {
     if (reviewResult.rows.length > 0) {
       res.render("edit_review", { review: reviewResult.rows[0], listName });
     } else {
-      res.status(403).send("Forbidden");
+      res.status(403).send("not allowed");
     }
   }
 });
@@ -1104,14 +1104,14 @@ app.post("/delete_review", async (req, res) => {
         await pool.query("DELETE FROM Reviews WHERE reviewID = $1", [reviewID]);
         res.redirect(`/view_reviews/${listName}`);
       } else {
-        res.status(403).send("Forbidden");
+        res.status(403).send("not allowed");
       }
     } else {
-      res.status(404).send("Review or Stock list not found");
+      res.status(404).send("Review or stock list not found");
     }
   } catch (err) {
     console.error(err);
-    res.status(500).send("error");
+    res.status(500).send("eror");
   }
 });
 
@@ -1125,7 +1125,7 @@ app.get("/deposit/:portfolioID", (req, res) => {
     if (match) {
       portfolioID = match[0];
     } else {
-      req.session.error = "Invalid portfolio ID.";
+      req.session.error = "Invalid portfolio id";
       return res.redirect("/view_stock_lists");
     }
 
@@ -1144,7 +1144,7 @@ app.post("/deposit", async (req, res) => {
     res.redirect("/dashboard");
   } catch (err) {
     console.error(err);
-    req.session.error = "Deposit failed.";
+    req.session.error = "Deposit fail";
     res.redirect(`/deposit/${portfolioID}`);
   }
 });
@@ -1159,7 +1159,7 @@ app.get("/withdraw/:portfolioID", (req, res) => {
     if (match) {
       portfolioID = match[0];
     } else {
-      req.session.error = "Invalid portfolio ID.";
+      req.session.error = "Invalid portfoli ID";
       return res.redirect("/view_stock_lists");
     }
     res.render("withdraw", { portfolioID, error: req.session.error || null });
@@ -1177,7 +1177,7 @@ app.post("/withdraw", async (req, res) => {
     const cashAmount = result.rows[0].cashamount;
 
     if (cashAmount < amount) {
-      req.session.error = "Insufficient funds.";
+      req.session.error = "no enough funds";
       res.redirect(`/withdraw/${portfolioID}`);
     } else {
       await pool.query(
@@ -1188,7 +1188,7 @@ app.post("/withdraw", async (req, res) => {
     }
   } catch (err) {
     console.error(err);
-    req.session.error = "Withdrawal failed.";
+    req.session.error = "Withdrawal fail";
     res.redirect(`/withdraw/${portfolioID}`);
   }
 });
@@ -1202,7 +1202,7 @@ app.get("/buy_stock/:portfolioID", async (req, res) => {
     if (match) {
       portfolioID = match[0];
     } else {
-      req.session.error = "Invalid portfolio ID.";
+      req.session.error = "Invalid portfolio id";
       return res.redirect("/view_stock_lists");
     }
 
@@ -1216,7 +1216,7 @@ app.get("/buy_stock/:portfolioID", async (req, res) => {
       );
 
       if (portfolioResult.rows.length === 0) {
-        res.status(404).send("Portfolio not found");
+        res.status(404).send("Portfolio not faund");
         return;
       }
 
@@ -1248,7 +1248,7 @@ app.post("/buy_stock", async (req, res) => {
   if (match) {
     portfolioID = match[0];
   } else {
-    req.session.error = "Invalid portfolio ID.";
+    req.session.error = "Invalid portfolio Id";
     return res.redirect("/view_stock_lists");
   }
 
@@ -1259,7 +1259,7 @@ app.post("/buy_stock", async (req, res) => {
     );
 
     if (stockResult.rows.length === 0) {
-      req.session.error = "Stock code not found.";
+      req.session.error = "Stock code not found";
       return res.redirect(`/buy_stock/${portfolioID}`);
     }
 
@@ -1273,7 +1273,7 @@ app.post("/buy_stock", async (req, res) => {
     const portfolio = portfolioResult.rows[0];
 
     if (portfolio.cashamount < cost) {
-      req.session.error = "Insufficient funds to buy the stock.";
+      req.session.error = "Insufficiant funds to buy";
       return res.redirect(`/buy_stock/${portfolioID}`);
     }
 
@@ -1308,7 +1308,7 @@ app.post("/buy_stock", async (req, res) => {
       [code, listName, stock.timestamp, shares]
     );
 
-    req.session.success = "Stock bought successfully!";
+    req.session.success = "Stock bought successfully";
     res.redirect(`/buy_stock/${portfolioID}`);
   } catch (err) {
     console.error(err);
@@ -1325,7 +1325,7 @@ app.get("/sell_stock/:portfolioID", async (req, res) => {
     if (match) {
       portfolioID = match[0];
     } else {
-      req.session.error = "Invalid portfolio ID.";
+      req.session.error = "Invalid portfolio ID";
       return res.redirect("/view_stock_lists");
     }
 
@@ -1369,7 +1369,7 @@ app.post("/sell_stock", async (req, res) => {
   if (match) {
     portfolioID = match[0];
   } else {
-    req.session.error = "Invalid portfolio ID.";
+    req.session.error = "Invalid potrfolio id";
     return res.redirect("/view_stock_lists");
   }
 
@@ -1380,7 +1380,7 @@ app.post("/sell_stock", async (req, res) => {
     );
 
     if (stockResult.rows.length === 0) {
-      req.session.error = "Stock code not found.";
+      req.session.error = "Stock code not found";
       return res.redirect(`/sell_stock/${portfolioID}`);
     }
 
@@ -1398,7 +1398,7 @@ app.post("/sell_stock", async (req, res) => {
       holdingsResult.rows.length === 0 ||
       holdingsResult.rows[0].shares < shares
     ) {
-      req.session.error = "Insufficient shares to sell.";
+      req.session.error = "Insufficient shares for sell";
       return res.redirect(`/sell_stock/${portfolioID}`);
     }
 
@@ -1419,7 +1419,7 @@ app.post("/sell_stock", async (req, res) => {
       [code, listName]
     );
 
-    req.session.success = "Stock sold successfully!";
+    req.session.success = "Stock sold successfully";
     res.redirect(`/sell_stock/${portfolioID}`);
   } catch (err) {
     console.error(err);
@@ -1433,12 +1433,24 @@ app.get("/historical_performance/:stockCode", async (req, res) => {
   const futureInterval = req.query.futureInterval || "1y";
 
   try {
-    const pastDate = calculatePastDate(pastInterval);
+    // Fetch the latest timestamp for the stock
+    const latestDateResult = await pool.query(
+      `SELECT MAX(timestamp) AS latest_date FROM Stocks WHERE code = $1`,
+      [stockCode]
+    );
+
+    if (latestDateResult.rows.length === 0) {
+      return res.status(404).send("Stock not found");
+    }
+
+    const latestDate = latestDateResult.rows[0].latest_date;
+    const pastDate = calculatePastDate(latestDate, pastInterval);
+
     const historicalData = await pool.query(
       `SELECT to_char(timestamp, 'YYYY-MM-DD') AS timestamp, close 
-             FROM Stocks 
-             WHERE code = $1 AND timestamp >= $2
-             ORDER BY timestamp`,
+               FROM Stocks 
+               WHERE code = $1 AND timestamp >= $2
+               ORDER BY timestamp`,
       [stockCode, pastDate]
     );
 
@@ -1471,8 +1483,8 @@ app.get("/historical_performance/:stockCode", async (req, res) => {
   }
 });
 
-function calculatePastDate(interval) {
-  const endDate = new Date("2018-02-08");
+function calculatePastDate(latestDate, interval) {
+  const endDate = new Date(latestDate);
   switch (interval) {
     case "1w":
       endDate.setDate(endDate.getDate() - 7);
