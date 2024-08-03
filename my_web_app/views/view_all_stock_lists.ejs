@@ -110,9 +110,6 @@
 <body>
     <div class="container">
         <h1>Stock Lists</h1>
-        <% if (successMessage) { %>
-            <div id="notification" class="notification"><%= successMessage %></div>
-        <% } %>
         <table>
             <thead>
                 <tr>
@@ -145,7 +142,13 @@
                                 <a class="btn" href="/withdraw/<%= stockList.portfolioid %>">Withdraw</a>
                             <% } else { %>
                                 <a class="btn" href="/view_stock_list/<%= stockList.listname %>">View</a>
-                                <a class="btn" href="/add_stock_to_list/<%= stockList.listname %>">Add Stock</a>
+                                <% if (stockList.userid === userId) { %>
+                                    <a class="btn" href="/add_stock_to_list/<%= stockList.listname %>">Add Stock</a>
+                                <% } %>
+                                <% if (stockList.userid !== userId) { %>
+                                    <a class="btn" href="/add_review/<%= stockList.listname %>">Add Review</a>
+                                <% } %>
+                                <a class="btn" href="/view_reviews/<%= stockList.listname %>">View Reviews</a>
                             <% } %>
                         </td>
                     </tr>
