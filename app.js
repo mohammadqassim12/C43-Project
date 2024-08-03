@@ -314,11 +314,6 @@ app.post("/send_friend_request", async (req, res) => {
     if (existingRequest.rows.length > 0) {
       const timePassed = parseInt(existingRequest.rows[0].timepassed, 10);
       const currentTime = Math.floor(Date.now() / 1000);
-      console.log(
-        `Current time: ${currentTime}, timePassed: ${timePassed}, difference: ${
-          currentTime - timePassed
-        }`
-      );
 
       if (currentTime - timePassed < 300) {
         req.session.error =
