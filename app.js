@@ -107,7 +107,6 @@ app.get('/dashboard', async (req, res) => {
     }
 });
 
-// Route to render the add stock form
 app.get('/add_stock', async (req, res) => {
     if (!req.session.userId) {
         res.redirect('/login');
